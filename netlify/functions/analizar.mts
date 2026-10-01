@@ -112,7 +112,7 @@ ${formato}`;
       if (!r.ok) throw new Error(d?.error?.message || "Error " + r.status);
       out = (d.content || []).filter((c: any) => c.type === "text").map((c: any) => c.text).join("");
     } else if (geminiKey) {
-      const model = Netlify.env.get("GEMINI_MODEL") || "gemini-2.5-flash";
+      const model = Netlify.env.get("GEMINI_MODEL") || "gemini-3.8-flash";
       const parts: any[] = imagenes.map((i) => ({ inline_data: { mime_type: i.mediaType, data: i.data } }));
       parts.push({ text: prompt });
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
@@ -120,7 +120,7 @@ ${formato}`;
         headers: { "content-type": "application/json", "x-goog-api-key": geminiKey },
         body: JSON.stringify({
           contents: [{ role: "user", parts }],
-          generationConfig: { responseMimeType: "application/json", temperature: 0.2, thinkingConfig: { thinkingBudget: 0 } },
+          generationConfig: { responseMimeType: "application/json", temperature: 0.2, thinkingConfig: { thinkingLevel: "low" } },
         }),
       });
       const d: any = await r.json();
