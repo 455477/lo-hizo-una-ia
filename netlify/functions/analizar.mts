@@ -110,20 +110,43 @@ ${formato}`;
     // Usa Gemini si hay clave de Gemini; Claude solo si no hay Gemini (o si PROVEEDOR=claude).
     const usarClaude = !!anthropicKey && (!geminiKey || (Netlify.env.get("PROVEEDOR") || "").toLowerCase() === "claude");
     if (geminiKey && !usarClaude) {
-      const model = Netlify.env.get("GEMINI_MODEL") || "gemini-3.8-flash";
+      // Plan B: si un modelo está saturado, prueba con los siguientes.
+      const preferido = Netlify.env.get("GEMINI_MODEL") || "gemini-3.8-flash";
+      const modelos = [preferido, "gemini-3.7-flash", "gemini-3.5-flash-lite", "gemini-3.6-flash"].filter((m, i, arr) => arr.indexOf(m) === i);
       const parts: any[] = imagenes.map((i) => ({ inline_data: { mime_type: i.mediaType, data: i.data } }));
       parts.push({ text: prompt });
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-goog-api-key": geminiKey },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts }],
-          generationConfig: { responseMimeType: "application/json", temperature: 0.2, thinkingConfig: { thinkingLevel: "low" } },
-        }),
-      });
-      const d: any = await r.json();
-      if (!r.ok) throw new Error(d?.error?.message || "Error " + r.status);
-      out = (d.candidates?.[0]?.content?.parts || []).map((p: any) => p.text || "").join("");
+      let ultimoError = "";
+      let saturado = false;
+      for (const model of modelos) {
+        for (const conThinking of [true, false]) {
+          const generationConfig: any = { responseMimeType: "application/json", temperature: 0.2 };
+          if (conThinking) generationConfig.thinkingConfig = { thinkingLevel: "low" };
+          const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+            method: "POST",
+            headers: { "content-type": "application/json", "x-goog-api-key": geminiKey },
+            body: JSON.stringify({ contents: [{ role: "user", parts }], generationConfig }),
+          });
+          const d: any = await r.json().catch(() => ({}));
+          if (r.ok) {
+            out = (d.candidates?.[0]?.content?.parts || []).filter((p: any) => !p.thought).map((p: any) => p.text || "").join("");
+            if (out) break;
+            ultimoError = "respuesta vacía";
+            continue;
+          }
+          ultimoError = d?.error?.message || "Error " + r.status;
+          const msg = ultimoError.toLowerCase();
+          // Si el problema es la opción de "pensamiento", reintenta el mismo modelo sin ella.
+          if (r.status === 400 && conThinking && msg.includes("think")) continue;
+          if (r.status === 400 && (msg.includes("api key") || msg.includes("api_key"))) throw new Error("La clave de Gemini no es válida.");
+          if ([429, 500, 503, 504].includes(r.status) || msg.includes("demand") || msg.includes("overloaded")) saturado = true;
+          break; // pasa al siguiente modelo
+        }
+        if (out) break;
+      }
+      if (!out) {
+        if (saturado) return json({ error: "saturado" }, 503);
+        throw new Error(ultimoError || "sin respuesta");
+      }
     } else if (usarClaude) {
       const content: any[] = imagenes.map((i) => ({ type: "image", source: { type: "base64", media_type: i.mediaType, data: i.data } }));
       content.push({ type: "text", text: prompt });

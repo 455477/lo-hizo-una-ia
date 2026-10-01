@@ -459,6 +459,7 @@ async function analizar(payload){
   if (e === 'codigo'){ $('#f-codigo').focus(); $('#acceso').scrollIntoView({ behavior: 'smooth' }); throw new Error($('#f-codigo').value.trim() ? 'Ese código no existe o está desactivado. Revisalo (arriba de todo) o pedí uno nuevo.' : 'Para analizar necesitás un código de acceso. Escribilo arriba de todo.'); }
   if (e === 'sin_cupo'){ accEstado(0); throw new Error('Se terminaron los análisis de tu código. ' + (d.contacto ? d.contacto : 'Para seguir, pedile más a quien te dio el código.')); }
   if (e === 'sin_clave') throw new Error('Todavía falta configurar la clave de la IA en el servidor.');
+  if (e === 'saturado') throw new Error('La IA de Google está saturada en este momento. Probá de nuevo en uno o dos minutos (no se descontó ningún análisis).');
   if (e === 'texto_corto') throw new Error('El texto es muy corto. Pegá al menos 25 palabras.');
   if (e === 'ia') throw new Error('La IA no pudo responder: ' + (d.detalle || 'error desconocido'));
   if (r.status === 504 || r.status === 502) throw new Error('Tardó demasiado. Probá de nuevo; si sigue, con menos imágenes.');
