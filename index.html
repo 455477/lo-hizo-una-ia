@@ -137,7 +137,8 @@ details summary{cursor:pointer;font-family:var(--f-display);font-weight:700}
     </div>
     <div class="row">
       <input type="text" id="f-codigo" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Ej.: K7M-2QX" style="max-width:220px;font-family:var(--f-mono);letter-spacing:.08em;text-transform:uppercase" aria-label="Código de acceso">
-      <span class="hint" id="acc-hint">Necesitás un código para analizar. Te lo da quien te compartió la página.</span>
+      <span class="hint" id="acc-hint" style="flex:1 1 200px">Necesitás un código para analizar. Te lo da quien te compartió la página.</span>
+      <button class="btn ghost small" id="acc-salir" type="button" hidden>Salir</button>
     </div>
   </section>
 
@@ -238,7 +239,7 @@ details summary{cursor:pointer;font-family:var(--f-display);font-weight:700}
         <li>Marcas de agua como "Sora", "Veo" o "Kling".</li>
       </ul></div>
     </div>
-    <p class="warning">Ningún detector es 100 % confiable: da una probabilidad, no una prueba. No acuses a nadie solo por este resultado; usalo para hacer mejores preguntas.</p>
+    <p class="warning" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><span>Ningún detector es 100 % confiable: da una probabilidad, no una prueba. No acuses a nadie solo por este resultado; usalo para hacer mejores preguntas.</span><a href="/admin.html" style="color:var(--muted)">Administrar códigos</a></p>
   </section>
 </div>
 
@@ -292,10 +293,13 @@ const contextoDe = f => ({ modo: f.modo, datos: f.campos.slice(1).map((v, i) => 
 $('#f-codigo').value = store.get('codigo', '');
 function accEstado(restantes, nombre){
   const tag = $('#acc-estado'), hint = $('#acc-hint');
+  $('#acc-salir').hidden = !$('#f-codigo').value.trim();
   if (restantes === null && nombre){ tag.textContent = 'Sin límite'; hint.textContent = 'Entraste como ' + nombre + '.'; return; }
   if (typeof restantes === 'number'){ tag.textContent = restantes + (restantes === 1 ? ' análisis' : ' análisis') + ' disponibles'; hint.textContent = (nombre ? nombre + '. ' : '') + 'Cada imagen, texto, video o cuestionario usa 1 análisis.'; store.set('restantes', restantes); store.set('acc-nombre', nombre || ''); return; }
   tag.textContent = $('#f-codigo').value ? 'Código cargado' : 'Sin código';
+  hint.textContent = $('#f-codigo').value ? 'Se verifica cuando hacés el primer análisis.' : 'Necesitás un código para analizar. Te lo da quien te compartió la página.';
 }
+$('#acc-salir').onclick = () => { $('#f-codigo').value = ''; store.set('codigo', ''); store.set('restantes', null); store.set('acc-nombre', ''); accEstado(); $('#f-codigo').focus(); };
 if (store.get('codigo','')){ const r = store.get('restantes', null); accEstado(typeof r === 'number' ? r : undefined, store.get('acc-nombre','')); }
 $('#f-codigo').oninput = () => { store.set('codigo', $('#f-codigo').value.trim().toUpperCase()); store.set('restantes', null); accEstado(); };
 
