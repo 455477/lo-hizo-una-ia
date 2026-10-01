@@ -18,11 +18,25 @@ export default async (req: Request) => {
   const contacto = Netlify.env.get("CONTACTO") || "";
   const accesos = getStore({ name: "accesos", consistency: "strong" });
   let acceso: any = null;
+  // Registro de consultas para el panel (sin guardar el contenido analizado).
+  const registro = getStore({ name: "registro" });
+  const t0 = Date.now();
+  let modeloUsado = "";
+  const anotar = async (e: Record<string, unknown>) => {
+    try {
+      const key = String(Date.now()).padStart(15, "0") + "-" + Math.random().toString(36).slice(2, 8);
+      await registro.setJSON(key, {
+        fecha: Date.now(), codigo, nombre: acceso ? acceso.nombre : (adminCode && codigo === adminCode ? "Administrador" : ""),
+        tipo: body.tipo, base: body.base || null, modo: body.contexto?.modo || "", imagenes: Array.isArray(body.imagenes) ? body.imagenes.length : 0,
+        modelo: modeloUsado, segundos: Math.round((Date.now() - t0) / 100) / 10, ...e,
+      });
+    } catch { /* el registro nunca debe romper el análisis */ }
+  };
   if (!codigo) return json({ error: "codigo" }, 401);
   if (!(adminCode && codigo === adminCode)) {
     acceso = await accesos.get(codigo, { type: "json" });
-    if (!acceso || !acceso.activo) return json({ error: "codigo" }, 401);
-    if ((acceso.usados || 0) >= (acceso.limite || 0)) return json({ error: "sin_cupo", contacto }, 402);
+    if (!acceso || !acceso.activo) { await anotar({ ok: false, error: "Código inexistente o desactivado" }); return json({ error: "codigo" }, 401); }
+    if ((acceso.usados || 0) >= (acceso.limite || 0)) { await anotar({ ok: false, error: "Sin análisis disponibles" }); return json({ error: "sin_cupo", contacto }, 402); }
   }
 
   const tipo = ["texto", "imagen", "video", "cuestionario"].includes(body.tipo) ? body.tipo : null;
@@ -129,7 +143,7 @@ ${formato}`;
           const d: any = await r.json().catch(() => ({}));
           if (r.ok) {
             out = (d.candidates?.[0]?.content?.parts || []).filter((p: any) => !p.thought).map((p: any) => p.text || "").join("");
-            if (out) break;
+            if (out) { modeloUsado = model; break; }
             ultimoError = "respuesta vacía";
             continue;
           }
@@ -144,7 +158,7 @@ ${formato}`;
         if (out) break;
       }
       if (!out) {
-        if (saturado) return json({ error: "saturado" }, 503);
+        if (saturado) { await anotar({ ok: false, error: "IA saturada (se probaron todos los modelos)", detalle: ultimoError.slice(0, 200) }); return json({ error: "saturado" }, 503); }
         throw new Error(ultimoError || "sin respuesta");
       }
     } else if (usarClaude) {
@@ -154,7 +168,7 @@ ${formato}`;
         method: "POST",
         headers: { "x-api-key": anthropicKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
         body: JSON.stringify({
-          model: Netlify.env.get("ANTHROPIC_MODEL") || "claude-haiku-4-5-20251001",
+          model: (modeloUsado = Netlify.env.get("ANTHROPIC_MODEL") || "claude-haiku-4-5-20251001"),
           max_tokens: 2000,
           messages: [{ role: "user", content }],
         }),
@@ -171,7 +185,7 @@ ${formato}`;
       const a = out.indexOf("{"), b = out.lastIndexOf("}");
       if (a >= 0 && b > a) { try { parsed = JSON.parse(out.slice(a, b + 1)); } catch { /* sigue null */ } }
     }
-    if (!parsed || typeof parsed !== "object") return json({ error: "respuesta_invalida" }, 502);
+    if (!parsed || typeof parsed !== "object") { await anotar({ ok: false, error: "La IA respondió algo que no se pudo leer", detalle: out.slice(0, 200) }); return json({ error: "respuesta_invalida" }, 502); }
     let restantes: number | null = null;
     if (acceso) {
       const fresco: any = (await accesos.get(codigo, { type: "json" })) || acceso;
@@ -180,8 +194,12 @@ ${formato}`;
       await accesos.setJSON(codigo, fresco);
       restantes = Math.max(0, (fresco.limite || 0) - fresco.usados);
     }
+    await anotar(tipo === "cuestionario"
+      ? { ok: true, titulo: String(parsed.titulo || "").slice(0, 160), preguntas: Array.isArray(parsed.preguntas) ? parsed.preguntas.length : 0, restantes }
+      : { ok: true, probabilidad: parsed.probabilidad_ia, veredicto: String(parsed.veredicto || "").slice(0, 160), resumen: String(parsed.resumen || "").slice(0, 600), restantes });
     return json({ ...parsed, _restantes: restantes, _nombre: acceso ? acceso.nombre : "Administrador" });
   } catch (e: any) {
+    await anotar({ ok: false, error: "Falló la IA", detalle: String(e?.message || e).slice(0, 300) });
     return json({ error: "ia", detalle: String(e?.message || e).slice(0, 300) }, 502);
   }
 };

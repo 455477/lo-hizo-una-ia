@@ -55,6 +55,8 @@ textarea{min-height:200px;resize:vertical;line-height:1.55}
 .thumb{position:relative;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--bg)}
 .thumb img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
 .thumb button{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:0;background:var(--paper);color:var(--ink);cursor:pointer;font-size:15px;line-height:1}
+.thumb .guardar{position:absolute;left:4px;top:4px;font-family:var(--f-mono);font-size:10.5px;font-weight:600;padding:3px 6px;border-radius:4px;border:0;background:var(--accent);color:var(--accent-ink);cursor:pointer;text-decoration:none}
+.cam-row .btn{flex:1 1 150px}
 .thumb .badge{position:absolute;left:4px;bottom:4px;font-family:var(--f-mono);font-size:11px;font-weight:600;padding:2px 6px;border-radius:4px;background:var(--paper);color:var(--ink)}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .btn{font-family:var(--f-display);font-weight:700;font-size:16px;padding:12px 20px;border-radius:8px;border:0;background:var(--accent);color:var(--accent-ink);cursor:pointer}
@@ -130,6 +132,23 @@ details summary{cursor:pointer;font-family:var(--f-display);font-weight:700}
 @media (max-width:560px){.topbar .lg{display:none}.topbar .btn{font-size:13px;padding:8px 10px}.topbar .brand{font-size:14px}.topbar-in{gap:6px}}
 @media (min-width:561px){.topbar .sm{display:none}}
 .topbar .btn.salir{background:none;color:var(--bad);border:1.5px solid var(--bad)}
+.overlay{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:24px;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(3px)}
+.ov-box{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:28px 26px;display:grid;gap:12px;justify-items:center;text-align:center;max-width:360px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.15)}
+.ov-box b{font-family:var(--f-display);font-size:20px}
+.ov-box span{font-size:14px;color:var(--muted)}
+.spin{width:46px;height:46px;border-radius:50%;border:4px solid var(--soft);border-top-color:var(--accent);animation:gira 0.9s linear infinite}
+@keyframes gira{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:3s}}
+#print-area{display:none}
+#res-bar,#cuest,#acceso,section.box{scroll-margin-top:calc(env(safe-area-inset-top,0px) + 120px)}
+@media print{
+  body.printing{background:#fff!important;color:#000!important;padding:0!important}
+  body.printing>*:not(#print-area){display:none!important}
+  body.printing #print-area{display:grid;gap:14px}
+  body.printing .report{break-inside:avoid;border:1px solid #ccc}
+  .print-head{display:grid;gap:4px;border-bottom:2px solid #000;padding-bottom:10px}
+  .print-head b{font-family:var(--f-display);font-size:22px}
+}
 </style>
 </head>
 <body>
@@ -137,11 +156,15 @@ details summary{cursor:pointer;font-family:var(--f-display);font-weight:700}
   <div class="topbar-in">
     <span class="row" style="gap:10px"><a class="brand" href="/">¿Lo hizo una IA?</a><span class="estado" id="top-estado">Sin código</span></span>
     <span class="acts">
+      <a class="btn ghost" href="/guia.pdf" target="_blank" rel="noopener"><span class="lg">Cómo funciona (PDF)</span><span class="sm">Guía</span></a>
       <a class="btn" id="top-admin" href="/admin.html"><span class="lg">Entrar como administrador</span><span class="sm">Admin</span></a>
       <button class="btn salir" id="top-salir" type="button" hidden>Salir</button>
     </span>
   </div>
 </nav>
+<div class="overlay" id="overlay" hidden role="status" aria-live="assertive">
+  <div class="ov-box"><div class="spin" aria-hidden="true"></div><b id="ov-msg">Analizando…</b><span id="ov-sub">Suele tardar entre 5 y 30 segundos. No cierres la página.</span></div>
+</div>
 <div class="wrap">
   <header>
     <span class="eyebrow">Detector de contenido generado</span>
@@ -187,10 +210,15 @@ details summary{cursor:pointer;font-family:var(--f-display);font-weight:700}
 
     <div class="pad" id="p-imagen" hidden>
       <div class="drop" id="drop-img" tabindex="0" role="button" aria-label="Elegir imágenes">
-        <strong>Soltá las imágenes acá o tocá para elegirlas</strong>
+        <strong>O soltá las imágenes acá</strong>
         <span class="hint">Hasta 10 a la vez. JPG, PNG o WebP. De Instagram: guardá la foto o hacé captura.</span>
       </div>
+      <div class="row cam-row">
+        <button class="btn" type="button" id="cam-img-btn">Sacar foto</button>
+        <button class="btn ghost" type="button" id="gal-img-btn">Elegir de la galería</button>
+      </div>
       <input type="file" id="file-img" accept="image/jpeg,image/png,image/webp,image/*" multiple hidden>
+      <input type="file" id="cam-img" accept="image/*" capture="environment" hidden>
       <div class="thumbs" id="thumbs"></div>
       <div class="row"><button class="btn" id="go-imagen" disabled>Analizar imágenes</button><button class="btn ghost" id="clear-img" hidden>Quitar todas</button><span class="status" id="istat"></span></div>
       <p class="hint">Si podés, subí el archivo original y no una captura: el original a veces trae marcas ocultas que delatan a la IA.</p>
@@ -198,16 +226,33 @@ details summary{cursor:pointer;font-family:var(--f-display);font-weight:700}
 
     <div class="pad" id="p-video" hidden>
       <div class="drop" id="drop-vid" tabindex="0" role="button" aria-label="Elegir video">
-        <strong>Soltá el video acá o tocá para elegirlo</strong>
+        <strong>O soltá el video acá</strong>
         <span class="hint">MP4 o WebM (los .MOV de iPhone a veces no abren: pasalos por WhatsApp o convertilos). Se revisan 6 fotogramas.</span>
       </div>
+      <div class="row cam-row">
+        <button class="btn" type="button" id="cam-vid-btn">Grabar video</button>
+        <button class="btn ghost" type="button" id="gal-vid-btn">Elegir de la galería</button>
+      </div>
       <input type="file" id="file-vid" accept="video/*" hidden>
+      <input type="file" id="cam-vid" accept="video/*" capture="environment" hidden>
       <div class="thumbs" id="vthumbs"></div>
       <div class="row"><button class="btn" id="go-video" disabled>Analizar video</button><span class="status" id="vstat"></span></div>
     </div>
   </section>
 
   <div id="alert" class="alert" role="alert" hidden></div>
+  <section class="box pad" id="res-bar" hidden>
+    <div class="row" style="justify-content:space-between">
+      <h2>Resultado</h2>
+      <div class="row">
+        <button class="btn small" id="res-pdf">Descargar informe (PDF)</button>
+        <button class="btn ghost small" id="res-nueva">Nueva consulta</button>
+        <button class="btn ghost small" id="res-borrar" style="color:var(--bad)">Borrar esta consulta</button>
+      </div>
+    </div>
+    <div class="row" id="res-confirm" hidden><span>¿Borrar esta consulta del historial y limpiar la pantalla?</span><button class="btn small" id="res-borrar-ok" style="background:var(--bad)">Sí, borrar</button><button class="btn ghost small" id="res-borrar-no">Cancelar</button></div>
+    <p class="hint">"Descargar" abre la ventana de impresión: elegí <b>Guardar como PDF</b>. "Nueva consulta" limpia todo para pasar a la siguiente (lo analizado queda en el historial).</p>
+  </section>
   <section id="results" aria-live="polite"></section>
   <section class="box pad" id="cuest" hidden aria-live="polite">
     <div class="row no-print" style="justify-content:space-between">
@@ -260,6 +305,7 @@ details summary{cursor:pointer;font-family:var(--f-display);font-weight:700}
     <p class="warning" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><span>Ningún detector es 100 % confiable: da una probabilidad, no una prueba. No acuses a nadie solo por este resultado; usalo para hacer mejores preguntas.</span></p>
   </section>
 </div>
+<div id="print-area"></div>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -388,22 +434,30 @@ function drawThumbs(){
   $('#thumbs').innerHTML = '';
   imgs.forEach((it, i) => {
     const d = document.createElement('div'); d.className = 'thumb';
-    d.innerHTML = `<img src="${it.url}" alt="${esc(it.file.name)}"><button type="button" aria-label="Quitar ${esc(it.file.name)}">×</button>${it.badge ? `<span class="badge">${esc(it.badge)}</span>` : ''}`;
-    d.querySelector('button').onclick = () => { imgs.splice(i,1); drawThumbs(); };
+    d.innerHTML = `<img src="${it.url}" alt="${esc(it.file.name)}"><button type="button" class="quitar" aria-label="Quitar ${esc(it.file.name)}">×</button>${it.camara ? `<a class="guardar" href="${it.url}" download="${esc(it.file.name)}">Guardar</a>` : ''}${it.badge ? `<span class="badge">${esc(it.badge)}</span>` : ''}`;
+    d.querySelector('.quitar').onclick = () => { imgs.splice(i,1); drawThumbs(); };
     $('#thumbs').append(d);
   });
   $('#go-imagen').disabled = !imgs.length;
   $('#clear-img').hidden = !imgs.length;
   $('#istat').textContent = imgs.length ? imgs.length + (imgs.length === 1 ? ' imagen' : ' imágenes') : '';
 }
-function addImages(files){
-  for (const f of files){
+function addImages(files, camara){
+  for (let f of files){
     if (!f.type.startsWith('image/')) continue;
     if (imgs.length >= 10){ showAlert('Máximo 10 imágenes por análisis.'); break; }
-    imgs.push({ file: f, url: URL.createObjectURL(f) });
+    if (camara){
+      const d = new Date(), z = n => String(n).padStart(2, '0');
+      const nombre = `foto-${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}${z(d.getSeconds())}.jpg`;
+      try{ f = new File([f], nombre, { type: f.type || 'image/jpeg' }); }catch{}
+    }
+    imgs.push({ file: f, url: URL.createObjectURL(f), camara: !!camara });
   }
   drawThumbs();
 }
+$('#cam-img-btn').onclick = () => $('#cam-img').click();
+$('#gal-img-btn').onclick = () => $('#file-img').click();
+$('#cam-img').onchange = () => { const inp = $('#cam-img'); if (inp.files.length) addImages([...inp.files], true); inp.value = ''; };
 $('#clear-img').onclick = () => { imgs = []; drawThumbs(); };
 
 function wireDrop(dropSel, inputSel, onFiles){
@@ -423,11 +477,15 @@ document.addEventListener('paste', e => {
 
 // ---------- video
 let vid = null;
-wireDrop('#drop-vid', '#file-vid', files => {
+function setVideo(files){
   const f = files.find(x => x.type.startsWith('video/'));
   if (!f) return showAlert('Ese archivo no es un video.');
   vid = f; $('#vstat').textContent = f.name; $('#vthumbs').innerHTML = ''; $('#go-video').disabled = false;
-});
+}
+wireDrop('#drop-vid', '#file-vid', setVideo);
+$('#cam-vid-btn').onclick = () => $('#cam-vid').click();
+$('#gal-vid-btn').onclick = () => $('#file-vid').click();
+$('#cam-vid').onchange = () => { const inp = $('#cam-vid'); if (inp.files.length) setVideo([...inp.files]); inp.value = ''; };
 async function grabFrames(file, n = 6){
   const v = document.createElement('video');
   v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(file);
@@ -531,9 +589,15 @@ function drawHist(){
       if (open && !body.childElementCount){
         e.items.forEach(it => body.append(reportEl(it.r, { title: it.nombre, thumb: it.thumb, meta: it.meta, open: false })));
         if (e.cuestionario){ const c = document.createElement('div'); c.className = 'report'; c.append(cuestEl(e.cuestionario, true)); body.append(c); }
-        const del = document.createElement('button'); del.className = 'btn ghost small'; del.textContent = 'Borrar este análisis';
-        del.onclick = () => { store.set(HKEY, store.get(HKEY, []).filter(x => x.id !== e.id)); drawHist(); };
-        body.append(del);
+        const acts = document.createElement('div'); acts.className = 'row';
+        const pdf = document.createElement('button'); pdf.className = 'btn small'; pdf.textContent = 'Descargar informe (PDF)';
+        pdf.onclick = () => imprimir([...body.querySelectorAll(':scope > .report')], e.ficha, new Date(e.fecha).toLocaleString('es-AR'));
+        const del = document.createElement('button'); del.className = 'btn ghost small'; del.textContent = 'Borrar esta consulta'; del.style.color = 'var(--bad)';
+        del.onclick = () => {
+          if (del.dataset.ok !== '1'){ del.dataset.ok = '1'; del.textContent = '¿Seguro? Tocá de nuevo para borrar'; return; }
+          store.set(HKEY, store.get(HKEY, []).filter(x => x.id !== e.id)); if (actualHist === e.id) actualHist = null; drawHist(); fillLists();
+        };
+        acts.append(pdf, del); body.append(acts);
       }
     };
     box.append(d);
@@ -568,7 +632,7 @@ function prepCuest(a){
 }
 $('#cuest-go').onclick = async () => {
   if (!actual) return; const btn = $('#cuest-go'); btn.disabled = true; btn.textContent = 'Armando…';
-  $('#cuest-out').innerHTML = '<p class="status">La IA está armando las preguntas. Suele tardar entre 5 y 20 segundos.</p>';
+  $('#cuest-out').innerHTML = ''; busyOn('Armando el cuestionario…', 'La IA está escribiendo preguntas sobre lo que analizaste.');
   try{
     const c = await analizar({ tipo: 'cuestionario', base: actual.tipo, texto: actual.texto, imagenes: actual.imagenes, meta: { resumen_del_analisis: actual.resumen, probabilidad_ia: actual.prob } });
     const out = $('#cuest-out'); out.innerHTML = '';
@@ -584,15 +648,57 @@ $('#cuest-go').onclick = async () => {
         try{ await navigator.clipboard.writeText(txt); e.target.textContent = 'Copiado'; }catch{ e.target.textContent = 'No se pudo copiar'; }
         setTimeout(() => e.target.textContent = 'Copiar', 1800);
       }
-      if (a === 'print'){ document.body.classList.add('print-cuest'); window.print(); document.body.classList.remove('print-cuest'); }
+      if (a === 'print'){ const ent = store.get(HKEY, []).find(x => x.id === actual?.histId); imprimir([body], ent ? ent.ficha : ficha()); }
       if (a === 'again') $('#cuest-go').click();
     };
     const h = store.get(HKEY, []), ent = h.find(x => x.id === actual.histId);
     if (ent){ ent.cuestionario = c; store.set(HKEY, h); }
     btn.textContent = 'Armar otro';
   }catch(e){ $('#cuest-out').innerHTML = `<p class="alert">${esc(e.message)}</p>`; btn.textContent = 'Probar de nuevo'; }
-  finally{ btn.disabled = false; }
+  finally{ btn.disabled = false; busyOff(); requestAnimationFrame(() => $('#cuest').scrollIntoView({ behavior: 'smooth', block: 'start' })); }
 };
+
+// ---------- cartel de espera, resultado y descarga
+let actualHist = null;
+function busyOn(msg, sub){ $('#ov-msg').textContent = msg; $('#ov-sub').textContent = sub || 'Suele tardar entre 5 y 30 segundos. No cierres la página.'; $('#overlay').hidden = false; }
+function busySub(sub){ $('#ov-sub').textContent = sub; }
+function busyOff(){ $('#overlay').hidden = true; }
+function mostrarResultado(){
+  $('#res-bar').hidden = false; $('#res-confirm').hidden = true;
+  requestAnimationFrame(() => $('#res-bar').scrollIntoView({ behavior: 'smooth', block: 'start' }));
+}
+function imprimir(nodos, f, fechaTxt){
+  const area = $('#print-area'); area.innerHTML = '';
+  const head = document.createElement('div'); head.className = 'print-head';
+  head.innerHTML = `<b>¿Lo hizo una IA? · Informe</b><span>${esc(fichaLine(f || ficha()))}${f && f.modo ? ' · ' + esc(MODES[f.modo]?.nombre || '') : ''}</span><span>${esc(fechaTxt || new Date().toLocaleString('es-AR'))}</span>`;
+  area.append(head);
+  nodos.forEach(n => { const c = n.cloneNode(true); c.querySelectorAll('details').forEach(d => d.open = true); c.querySelectorAll('button, .no-print, .hist-row').forEach(b => b.remove()); c.classList.remove('hide-exp'); area.append(c); });
+  const pie = document.createElement('p'); pie.className = 'warning'; pie.textContent = 'Ningún detector es 100 % confiable: es una probabilidad, no una prueba. Generado con lo-hizo-una-ia.netlify.app';
+  area.append(pie);
+  document.body.classList.add('printing');
+  const fin = () => document.body.classList.remove('printing');
+  window.addEventListener('afterprint', fin, { once: true });
+  window.print();
+  setTimeout(() => { if (!matchMedia('print').matches) fin(); }, 1500);
+}
+$('#res-pdf').onclick = () => {
+  const nodos = [...$('#results').children];
+  if (!$('#cuest').hidden && $('#cuest-out').querySelector('.qlist')) nodos.push($('#cuest-out'));
+  const ent = store.get(HKEY, []).find(x => x.id === actualHist);
+  imprimir(nodos, ent ? ent.ficha : ficha());
+};
+function nuevaConsulta(){
+  $('#results').innerHTML = ''; $('#res-bar').hidden = true; $('#cuest').hidden = true; $('#cuest-out').innerHTML = ''; showAlert('');
+  $('#txt').value = ''; updWc(); imgs = []; drawThumbs(); vid = null; $('#vthumbs').innerHTML = ''; $('#vstat').textContent = ''; $('#go-video').disabled = true;
+  const f0 = $('#f-0'); if (f0){ f0.value = ''; store.set('ficha-' + modo, [0,1,2,3].map(i => $('#f-' + i).value)); }
+  actualHist = null; actual = null;
+  $('#ficha-t').closest('section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(() => f0 && f0.focus({ preventScroll: true }), 400);
+}
+$('#res-nueva').onclick = nuevaConsulta;
+$('#res-borrar').onclick = () => $('#res-confirm').hidden = false;
+$('#res-borrar-no').onclick = () => $('#res-confirm').hidden = true;
+$('#res-borrar-ok').onclick = () => { if (actualHist){ store.set(HKEY, store.get(HKEY, []).filter(x => x.id !== actualHist)); drawHist(); fillLists(); } nuevaConsulta(); };
 
 // ---------- acciones
 $('#go-texto').onclick = async () => {
@@ -601,15 +707,15 @@ $('#go-texto').onclick = async () => {
   if ((t.match(/\S+/g) || []).length < 25) return showAlert('El texto es muy corto. Pegá al menos 25 palabras (mejor más de 150).');
   btn.disabled = true;
   const title = 'Texto · ' + fichaLine(f);
-  const ph = placeholder(title); $('#results').replaceChildren(ph); ph.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const ph = placeholder(title); $('#results').replaceChildren(ph); busyOn('Analizando el texto…');
   try{
     const r = await analizar({ tipo: 'texto', texto: t, meta: textClues(t) });
     ph.replaceWith(reportEl(r, { title, tag: new Date().toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' }) }));
     const id = Date.now();
     saveHist({ id, fecha: id, ficha: f, tipo: 'Texto', score: clampP(r.probabilidad_ia), items: [{ nombre: 'Texto (' + (t.match(/\S+/g)||[]).length + ' palabras)', r }] });
-    prepCuest({ modo: f.modo, tipo: 'texto', texto: t, imagenes: [], resumen: r.resumen, prob: clampP(r.probabilidad_ia), histId: id });
+    prepCuest({ modo: f.modo, tipo: 'texto', texto: t, imagenes: [], resumen: r.resumen, prob: clampP(r.probabilidad_ia), histId: id }); actualHist = id;
   }catch(e){ ph.replaceWith(errorCard(title, e.message)); }
-  finally{ btn.disabled = false; }
+  finally{ btn.disabled = false; busyOff(); mostrarResultado(); }
 };
 
 $('#go-imagen').onclick = async () => {
@@ -623,7 +729,7 @@ $('#go-imagen').onclick = async () => {
     head.innerHTML = `<div class="report-head"><h3>${esc(fichaLine(f))}</h3><span class="tag">${done.length}/${list.length} listas</span></div>
       ${done.length ? `<div class="verdict"><div class="score">${max}<small>%</small></div><div><div class="vlabel ${cls}">${list.length > 1 ? 'La más sospechosa: ' : ''}${esc(lab)}</div><div class="meter"><i style="left:${max}%"></i></div><div class="scale"><span>Humano</span><span>Dudoso</span><span>IA</span></div></div></div>` : '<p class="summary status">Analizando las imágenes…</p>'}`;
   };
-  updateHead(); head.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  updateHead(); busyOn(list.length > 1 ? 'Analizando ' + list.length + ' imágenes…' : 'Analizando la imagen…', list.length > 1 ? '0 de ' + list.length + ' listas. Suele tardar entre 5 y 30 segundos por imagen.' : undefined);
   const cards = list.map((it, i) => { const c = placeholder(`Imagen ${i+1} · ${it.file.name}`, it.url); $('#results').append(c); return c; });
   let next = 0;
   async function worker(){
@@ -634,14 +740,15 @@ $('#go-imagen').onclick = async () => {
         const s = await shrink(it.file);
         meta.tamano_original = s.w + 'x' + s.h;
         const r = await analizar({ tipo: 'imagen', imagenes: [{ mediaType: 'image/jpeg', data: s.data }], meta });
-        items[i] = { nombre: it.file.name, r, meta, thumb: (await shrink(it.file, 160, 0.6)).thumb }; datas[i] = s.data;
-        cards[i].replaceWith(cards[i] = reportEl(r, { title, thumb: it.url, meta, open: list.length === 1 }));
+        const mini = (await shrink(it.file, 240, 0.7)).thumb;
+        items[i] = { nombre: it.file.name, r, meta, thumb: mini }; datas[i] = s.data;
+        cards[i].replaceWith(cards[i] = reportEl(r, { title, thumb: mini, meta, open: list.length === 1 }));
         it.badge = clampP(r.probabilidad_ia) + '%';
       }catch(e){
         const msg = e.message === 'formato' ? 'No se pudo abrir esta imagen (los HEIC de iPhone no abren en todos los navegadores: mandala por WhatsApp o hacé captura).' : e.message;
         cards[i].replaceWith(cards[i] = errorCard(title, msg)); it.badge = 'Error';
       }
-      updateHead(); drawThumbs();
+      updateHead(); drawThumbs(); if (list.length > 1) busySub(items.filter(Boolean).length + ' de ' + list.length + ' listas…');
     }
   }
   await Promise.all([worker(), worker(), worker()]);
@@ -649,28 +756,31 @@ $('#go-imagen').onclick = async () => {
   if (done.length){
     const id = Date.now(), score = Math.max(...done.map(x => clampP(x.r.probabilidad_ia)));
     saveHist({ id, fecha: id, ficha: f, tipo: done.length === 1 ? 'Imagen' : done.length + ' imágenes', score, items: done });
+    actualHist = id;
     prepCuest({ modo: f.modo, tipo: 'imagen', imagenes: datas.filter(Boolean).slice(0, 4).map(d => ({ mediaType: 'image/jpeg', data: d })), resumen: done.map(x => x.r.resumen).join(' | ').slice(0, 1500), prob: score, histId: id });
   }
-  btn.disabled = false;
+  btn.disabled = false; busyOff(); mostrarResultado();
 };
 
 $('#go-video').onclick = async () => {
   if (!vid) return;
   const btn = $('#go-video'), f = ficha(), title = 'Video · ' + vid.name; showAlert(''); btn.disabled = true; $('#cuest').hidden = true;
-  const ph = placeholder(title); $('#results').replaceChildren(ph); ph.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const ph = placeholder(title); $('#results').replaceChildren(ph); busyOn('Preparando el video…', 'Sacando 6 fotogramas para revisarlos.');
   try{
     $('#vstat').textContent = 'Sacando fotogramas…';
     const [meta, fr] = await Promise.all([scanMeta(vid), grabFrames(vid, 6)]);
     $('#vthumbs').innerHTML = fr.frames.map((x, i) => `<div class="thumb"><img src="${x.thumb}" alt="Fotograma ${i+1}"></div>`).join('');
     $('#vstat').textContent = vid.name;
+    busyOn('Analizando el video…');
     meta.duracion_seg = +fr.dur.toFixed(1); meta.resolucion = fr.w + 'x' + fr.h;
     const r = await analizar({ tipo: 'video', imagenes: fr.frames.map(x => ({ mediaType: 'image/jpeg', data: x.data })), meta });
     ph.replaceWith(reportEl(r, { title, meta, thumb: fr.frames[2].thumb }));
     const id = Date.now();
     saveHist({ id, fecha: id, ficha: f, tipo: 'Video', score: clampP(r.probabilidad_ia), items: [{ nombre: vid.name, r, meta, thumb: (await shrink(fr.frames[2].thumb, 160, 0.6)).thumb }] });
+    actualHist = id;
     prepCuest({ modo: f.modo, tipo: 'video', imagenes: fr.frames.filter((_, i) => i % 2 === 0).map(x => ({ mediaType: 'image/jpeg', data: x.data })), resumen: r.resumen, prob: clampP(r.probabilidad_ia), histId: id });
   }catch(e){ ph.replaceWith(errorCard(title, e.message)); $('#vstat').textContent = vid.name; }
-  finally{ btn.disabled = false; }
+  finally{ btn.disabled = false; busyOff(); mostrarResultado(); }
 };
 
 drawModes(); drawHist(); updWc();

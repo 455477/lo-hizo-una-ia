@@ -21,6 +21,24 @@ export default async (req: Request) => {
     return json({ codigos: items.filter(Boolean).sort((a: any, b: any) => (b.creado || 0) - (a.creado || 0)) });
   }
 
+  if (accion === "registro") {
+    const reg = getStore({ name: "registro" });
+    const { blobs } = await reg.list();
+    const keys = blobs.map((b: any) => b.key).sort().reverse();
+    // Mantener como máximo 3000 entradas: borra las más viejas.
+    if (keys.length > 3000) await Promise.all(keys.slice(3000).map((k: string) => reg.delete(k)));
+    const limite = Math.max(1, Math.min(500, Number(body.limite) || 200));
+    const items = await Promise.all(keys.slice(0, limite).map((k: string) => reg.get(k, { type: "json" })));
+    return json({ registro: items.filter(Boolean), total: Math.min(keys.length, 3000) });
+  }
+
+  if (accion === "borrar_registro") {
+    const reg = getStore({ name: "registro" });
+    const { blobs } = await reg.list();
+    await Promise.all(blobs.map((b: any) => reg.delete(b.key)));
+    return json({ ok: true });
+  }
+
   if (accion === "crear") {
     const nombre = String(body.nombre || "").trim().slice(0, 80);
     const limite = Math.max(0, Math.min(100000, Math.round(Number(body.limite) || 0)));

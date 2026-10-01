@@ -48,6 +48,15 @@ label{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transfo
 .nums{font-family:var(--f-mono);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .pill{font-family:var(--f-mono);font-size:11px;padding:2px 7px;border-radius:4px;background:var(--soft);color:var(--muted)}
 .msg{font-size:14px;padding:10px 12px;border-radius:8px;background:var(--soft)}
+.reg{background:var(--paper);border:1px solid var(--line);border-left:4px solid var(--ok);border-radius:8px;padding:10px 14px;display:grid;gap:4px;min-width:0}
+.reg.err{border-left-color:var(--bad)}
+.reg .top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:14px}
+.reg .top b{font-family:var(--f-display)}
+.reg .txt{font-size:14px;overflow-wrap:anywhere}
+.reg .det{font-family:var(--f-mono);font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.ok-pill,.err-pill{font-family:var(--f-mono);font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px}
+.ok-pill{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.err-pill{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
 .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
 .stat{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
 .stat b{display:block;font-family:var(--f-display);font-size:26px;font-variant-numeric:tabular-nums}
@@ -69,6 +78,7 @@ label{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transfo
   <div class="topbar-in">
     <span class="row" style="gap:10px"><a class="brand" href="/">¿Lo hizo una IA?</a><span class="estado" id="top-estado">Cerrado</span></span>
     <span class="acts">
+      <a class="btn ghost" href="/guia.pdf" target="_blank" rel="noopener"><span class="lg">Cómo funciona (PDF)</span><span class="sm">Guía</span></a>
       <a class="btn ghost" href="/" id="top-volver"><span class="lg">Ir al detector</span><span class="sm">Detector</span></a>
       <button class="btn" id="usar" type="button" hidden><span class="lg">Usar el detector sin límite</span><span class="sm">Usar sin límite</span></button>
       <button class="btn salir" id="salir" type="button" hidden><span class="lg">Salir del panel</span><span class="sm">Salir</span></button>
@@ -110,6 +120,23 @@ label{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transfo
         <input type="text" id="filter" placeholder="Buscar…" aria-label="Buscar código" style="flex:0 1 240px">
       </div>
       <div class="list" id="list"></div>
+    </section>
+
+    <section style="display:grid;gap:12px" id="registro">
+      <div class="row" style="justify-content:space-between">
+        <h2>Registro de consultas</h2>
+        <span class="row">
+          <button class="btn ghost small" id="reg-cargar">Actualizar</button>
+          <button class="btn danger small" id="reg-borrar">Borrar registro</button>
+        </span>
+      </div>
+      <div class="row" id="reg-confirm" hidden><span>¿Borrar todo el registro? No se puede deshacer.</span><button class="btn danger small" id="reg-borrar-ok">Sí, borrar</button><button class="btn ghost small" id="reg-borrar-no">Cancelar</button></div>
+      <div class="row">
+        <input type="text" id="reg-filtro" placeholder="Filtrar por nombre o código…" aria-label="Filtrar registro" style="flex:1 1 200px">
+        <label style="display:flex;align-items:center;gap:6px;text-transform:none;letter-spacing:0;font-family:var(--f-body);font-size:14px;color:var(--ink)"><input type="checkbox" id="reg-errores"> Solo errores</label>
+      </div>
+      <p class="muted">Se guarda qué pidió cada código y qué respondió la IA (o por qué falló). No se guardan los textos ni las imágenes analizadas.</p>
+      <div class="list" id="reg-list"><p class="muted">Cargando…</p></div>
     </section>
   </div>
 </div>
@@ -171,6 +198,7 @@ function draw(){
       ${c.nota ? `<p class="muted">${esc(c.nota)}</p>` : ''}
       <div class="row">
         <a class="btn small" href="${whatsapp(c)}" target="_blank" rel="noopener" style="text-decoration:none">Enviar por WhatsApp</a>
+        <button class="btn ghost small" data-a="cod">Copiar código</button>
         <button class="btn ghost small" data-a="wa">Copiar mensaje</button>
         <button class="btn ghost small" data-a="link">Copiar link</button>
         <button class="btn ghost small" data-a="s10">+10</button>
@@ -184,6 +212,7 @@ function draw(){
       const a = e.target.dataset.a; if (!a) return;
       const zone = el.querySelector('[data-zone]');
       try{
+        if (a === 'cod') return copiar(c.codigo, e.target);
         if (a === 'wa') return copiar(mensaje(c), e.target);
         if (a === 'link') return copiar(link(c), e.target);
         if (a === 's10' || a === 's50') await upd(c, { sumar: a === 's10' ? 10 : 50 });
@@ -211,7 +240,7 @@ async function upd(c, cambios){
 async function cargar(){
   try{
     const d = await api('listar');
-    codigos = d.codigos; $('#login').hidden = true; $('#panel').hidden = false; $('#salir').hidden = false; $('#usar').hidden = false; $('#top-estado').textContent = 'Admin'; $('#top-estado').className = 'estado admin'; draw();
+    codigos = d.codigos; cargarRegistro(); $('#login').hidden = true; $('#panel').hidden = false; $('#salir').hidden = false; $('#usar').hidden = false; $('#top-estado').textContent = 'Admin'; $('#top-estado').className = 'estado admin'; draw();
   }catch(e){
     $('#login').hidden = false; $('#panel').hidden = true;
     $('#login-msg').textContent = e.message === 'no_autorizado' ? (ADMIN ? 'Ese código de administrador no es correcto.' : '') : 'No se pudo cargar: ' + e.message;
@@ -225,7 +254,8 @@ $('#new-form').onsubmit = async e => {
     const d = await api('crear', { nombre: $('#n-nombre').value, limite: $('#n-limite').value, nota: $('#n-nota').value });
     codigos.unshift(d.codigo); draw();
     const c = d.codigo, out = $('#new-out');
-    out.innerHTML = `<div class="msg" style="display:grid;gap:8px"><span>Listo: <b class="mono">${esc(c.codigo)}</b> para ${esc(c.nombre)} con ${c.limite} análisis.</span><div class="row"><a class="btn small" href="${whatsapp(c)}" target="_blank" rel="noopener" style="text-decoration:none">Enviar por WhatsApp</a><button class="btn ghost small" id="cp-wa">Copiar mensaje</button><button class="btn ghost small" id="cp-link">Copiar link</button></div><div data-zone hidden></div></div>`;
+    out.innerHTML = `<div class="msg" style="display:grid;gap:8px"><span>Listo: <b class="mono">${esc(c.codigo)}</b> para ${esc(c.nombre)} con ${c.limite} análisis.</span><div class="row"><a class="btn small" href="${whatsapp(c)}" target="_blank" rel="noopener" style="text-decoration:none">Enviar por WhatsApp</a><button class="btn ghost small" id="cp-cod">Copiar código</button><button class="btn ghost small" id="cp-wa">Copiar mensaje</button><button class="btn ghost small" id="cp-link">Copiar link</button></div><div data-zone hidden></div></div>`;
+    $('#cp-cod').onclick = ev => copiar(c.codigo, ev.target);
     $('#cp-wa').onclick = ev => copiar(mensaje(c), ev.target);
     $('#cp-link').onclick = ev => copiar(link(c), ev.target);
     $('#n-nombre').value = ''; $('#n-nota').value = '';
@@ -233,6 +263,37 @@ $('#new-form').onsubmit = async e => {
   finally{ btn.disabled = false; }
 };
 $('#filter').oninput = draw;
+// ---------- registro
+let registro = [];
+const TIPOS = { texto: 'Texto', imagen: 'Imagen', video: 'Video', cuestionario: 'Cuestionario' };
+const MODOS = { educacion: 'Educación', empresa: 'Empresa', redes: 'Redes', personal: 'Personal', compras: 'Compras' };
+async function cargarRegistro(){
+  $('#reg-list').innerHTML = '<p class="muted">Cargando…</p>';
+  try{ const d = await api('registro', { limite: 300 }); registro = d.registro; drawRegistro(d.total); }
+  catch(e){ $('#reg-list').innerHTML = `<p class="msg">No se pudo cargar el registro: ${esc(e.message)}</p>`; }
+}
+function drawRegistro(total){
+  const q = $('#reg-filtro').value.trim().toLowerCase(), soloErr = $('#reg-errores').checked;
+  const list = registro.filter(e => (!soloErr || !e.ok) && (!q || ((e.nombre || '') + ' ' + (e.codigo || '')).toLowerCase().includes(q)));
+  const box = $('#reg-list');
+  if (!list.length){ box.innerHTML = `<p class="muted">${registro.length ? 'Nada coincide con el filtro.' : 'Todavía no hay consultas registradas.'}</p>`; return; }
+  box.innerHTML = list.map(e => {
+    const tipo = (TIPOS[e.tipo] || e.tipo) + (e.tipo === 'imagen' && e.imagenes > 1 ? ' ×' + e.imagenes : '') + (e.modo ? ' · ' + (MODOS[e.modo] || e.modo) : '');
+    const quien = e.nombre ? `${esc(e.nombre)} <span class="det">${esc(e.codigo || '')}</span>` : `<span class="det">${esc(e.codigo || 'sin código')}</span>`;
+    const cuerpo = e.ok
+      ? (e.tipo === 'cuestionario' ? `${esc(e.titulo || 'Cuestionario')} (${e.preguntas || 0} preguntas)` : `<b>${e.probabilidad ?? '–'}%</b> · ${esc(e.veredicto || '')}${e.resumen ? `<br><span class="muted">${esc(e.resumen)}</span>` : ''}`)
+      : `<b>${esc(e.error || 'Error')}</b>${e.detalle ? `<div class="det">${esc(e.detalle)}</div>` : ''}`;
+    return `<div class="reg ${e.ok ? '' : 'err'}"><div class="top"><span><span class="${e.ok ? 'ok-pill' : 'err-pill'}">${e.ok ? 'OK' : 'ERROR'}</span> <b>${quien}</b></span><span class="det">${fecha(e.fecha)}</span></div>
+      <div class="det">${esc(tipo)}${e.modelo ? ' · ' + esc(e.modelo) : ''}${e.segundos ? ' · ' + e.segundos + ' s' : ''}${typeof e.restantes === 'number' ? ' · le quedan ' + e.restantes : ''}</div>
+      <div class="txt">${cuerpo}</div></div>`;
+  }).join('') + (total > registro.length ? `<p class="muted">Mostrando las últimas ${registro.length} de ${total}.</p>` : '');
+}
+$('#reg-cargar').onclick = cargarRegistro;
+$('#reg-filtro').oninput = () => drawRegistro(registro.length);
+$('#reg-errores').onchange = () => drawRegistro(registro.length);
+$('#reg-borrar').onclick = () => $('#reg-confirm').hidden = false;
+$('#reg-borrar-no').onclick = () => $('#reg-confirm').hidden = true;
+$('#reg-borrar-ok').onclick = async () => { try{ await api('borrar_registro'); registro = []; $('#reg-confirm').hidden = true; drawRegistro(0); }catch(e){ $('#reg-confirm').innerHTML = '<span class="msg">No se pudo borrar: ' + esc(e.message) + '</span>'; } };
 $('#usar').onclick = () => {
   try{ localStorage.setItem('codigo', JSON.stringify(ADMIN.toUpperCase())); localStorage.setItem('restantes', 'null'); localStorage.setItem('acc-nombre', JSON.stringify('Administrador')); }catch{}
   location.href = '/';
