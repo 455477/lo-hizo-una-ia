@@ -107,22 +107,9 @@ ${formato}`;
 
   try {
     let out = "";
-    if (anthropicKey) {
-      const content: any[] = imagenes.map((i) => ({ type: "image", source: { type: "base64", media_type: i.mediaType, data: i.data } }));
-      content.push({ type: "text", text: prompt });
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "x-api-key": anthropicKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-        body: JSON.stringify({
-          model: Netlify.env.get("ANTHROPIC_MODEL") || "claude-haiku-4-5-20251001",
-          max_tokens: 2000,
-          messages: [{ role: "user", content }],
-        }),
-      });
-      const d: any = await r.json();
-      if (!r.ok) throw new Error(d?.error?.message || "Error " + r.status);
-      out = (d.content || []).filter((c: any) => c.type === "text").map((c: any) => c.text).join("");
-    } else if (geminiKey) {
+    // Usa Gemini si hay clave de Gemini; Claude solo si no hay Gemini (o si PROVEEDOR=claude).
+    const usarClaude = !!anthropicKey && (!geminiKey || (Netlify.env.get("PROVEEDOR") || "").toLowerCase() === "claude");
+    if (geminiKey && !usarClaude) {
       const model = Netlify.env.get("GEMINI_MODEL") || "gemini-3.8-flash";
       const parts: any[] = imagenes.map((i) => ({ inline_data: { mime_type: i.mediaType, data: i.data } }));
       parts.push({ text: prompt });
@@ -137,6 +124,21 @@ ${formato}`;
       const d: any = await r.json();
       if (!r.ok) throw new Error(d?.error?.message || "Error " + r.status);
       out = (d.candidates?.[0]?.content?.parts || []).map((p: any) => p.text || "").join("");
+    } else if (usarClaude) {
+      const content: any[] = imagenes.map((i) => ({ type: "image", source: { type: "base64", media_type: i.mediaType, data: i.data } }));
+      content.push({ type: "text", text: prompt });
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "x-api-key": anthropicKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        body: JSON.stringify({
+          model: Netlify.env.get("ANTHROPIC_MODEL") || "claude-haiku-4-5-20251001",
+          max_tokens: 2000,
+          messages: [{ role: "user", content }],
+        }),
+      });
+      const d: any = await r.json();
+      if (!r.ok) throw new Error(d?.error?.message || "Error " + r.status);
+      out = (d.content || []).filter((c: any) => c.type === "text").map((c: any) => c.text).join("");
     } else {
       return json({ error: "sin_clave" }, 503);
     }
