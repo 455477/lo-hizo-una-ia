@@ -57,6 +57,11 @@ label{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transfo
 .ok-pill,.err-pill{font-family:var(--f-mono);font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px}
 .ok-pill{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
 .err-pill{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.sol{background:var(--paper);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:12px 14px;display:grid;gap:8px;min-width:0}
+.sol.hecha{border-left-color:var(--line);opacity:.75}
+.sol .top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.sol .top b{font-family:var(--f-display);font-size:16px;overflow-wrap:anywhere}
+.pill.nueva{background:var(--accent);color:var(--accent-ink)}
 .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
 .stat{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
 .stat b{display:block;font-family:var(--f-display);font-size:26px;font-variant-numeric:tabular-nums}
@@ -114,6 +119,18 @@ label{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transfo
       <div id="new-out"></div>
     </section>
 
+    <section style="display:grid;gap:12px" id="solicitudes">
+      <div class="row" style="justify-content:space-between">
+        <h2>Pedidos <span class="pill" id="sol-nuevas" hidden></span></h2>
+        <span class="row">
+          <label style="display:flex;align-items:center;gap:6px;text-transform:none;letter-spacing:0;font-family:var(--f-body);font-size:14px;color:var(--ink)"><input type="checkbox" id="sol-pend" checked> Solo pendientes</label>
+          <button class="btn ghost small" id="sol-cargar">Actualizar</button>
+        </span>
+      </div>
+      <p class="muted">Pruebas gratis creadas solas (3 análisis) y pedidos de más análisis. Cada uno también te llega por mail.</p>
+      <div class="list" id="sol-list"><p class="muted">Cargando…</p></div>
+    </section>
+
     <section style="display:grid;gap:12px">
       <div class="row" style="justify-content:space-between">
         <h2>Códigos</h2>
@@ -157,7 +174,7 @@ async function api(accion, extra = {}){
 }
 function link(c){ return base + '?c=' + encodeURIComponent(c.codigo); }
 function mensaje(c){
-  return `Hola! Te comparto el detector "¿Lo hizo una IA?" para revisar si textos, imágenes o videos fueron hechos con inteligencia artificial.\n\nEntrá desde este link (ya trae tu código):\n${link(c)}\n\nTu código es ${c.codigo} y tiene ${Math.max(0, c.limite - c.usados)} análisis.`;
+  return `Hola! Te comparto el detector "¿Lo hizo una IA?" para revisar si textos, imágenes o videos fueron hechos con inteligencia artificial.\n\nEntrá desde este link (ya trae tu código):\n${link(c)}\n\nTu código es ${c.codigo} y tiene ${Math.max(0, c.limite - c.usados)} análisis. Es personal: si querés recomendarlo a alguien, pasale este otro link y pide su prueba gratis: ${base}`;
 }
 function copiaVieja(txt){
   const ta = document.createElement('textarea'); ta.value = txt; ta.setAttribute('readonly', '');
@@ -240,7 +257,7 @@ async function upd(c, cambios){
 async function cargar(){
   try{
     const d = await api('listar');
-    codigos = d.codigos; cargarRegistro(); $('#login').hidden = true; $('#panel').hidden = false; $('#salir').hidden = false; $('#usar').hidden = false; $('#top-estado').textContent = 'Admin'; $('#top-estado').className = 'estado admin'; draw();
+    codigos = d.codigos; cargarRegistro(); cargarSolicitudes(); $('#login').hidden = true; $('#panel').hidden = false; $('#salir').hidden = false; $('#usar').hidden = false; $('#top-estado').textContent = 'Admin'; $('#top-estado').className = 'estado admin'; draw();
   }catch(e){
     $('#login').hidden = false; $('#panel').hidden = true;
     $('#login-msg').textContent = e.message === 'no_autorizado' ? (ADMIN ? 'Ese código de administrador no es correcto.' : '') : 'No se pudo cargar: ' + e.message;
@@ -263,6 +280,58 @@ $('#new-form').onsubmit = async e => {
   finally{ btn.disabled = false; }
 };
 $('#filter').oninput = draw;
+// ---------- pedidos
+let solicitudes = [];
+const TIPO_SOL = { prueba: 'Prueba gratis (automática)', mas: 'Pide más análisis', consulta: 'Consulta: ya usó la prueba' };
+function waLink(contacto, texto){
+  const dig = String(contacto || '').replace(/\D/g, '');
+  if (dig.length < 8) return '';
+  const n = dig.startsWith('54') ? dig : '549' + dig.slice(-10);
+  return 'https://wa.me/' + n + '?text=' + encodeURIComponent(texto);
+}
+async function cargarSolicitudes(){
+  try{ const d = await api('solicitudes'); solicitudes = d.solicitudes; drawSolicitudes(); }
+  catch(e){ $('#sol-list').innerHTML = `<p class="msg">No se pudieron cargar los pedidos: ${esc(e.message)}</p>`; }
+}
+function drawSolicitudes(){
+  const nuevas = solicitudes.filter(x => x.estado === 'nueva').length;
+  $('#sol-nuevas').hidden = !nuevas; $('#sol-nuevas').textContent = nuevas + (nuevas === 1 ? ' nuevo' : ' nuevos'); $('#sol-nuevas').className = 'pill nueva';
+  const list = solicitudes.filter(x => !$('#sol-pend').checked || x.estado !== 'resuelta');
+  const box = $('#sol-list');
+  if (!list.length){ box.innerHTML = `<p class="muted">${solicitudes.length ? 'No hay pedidos pendientes.' : 'Todavía no hay pedidos.'}</p>`; return; }
+  box.innerHTML = '';
+  list.forEach(x => {
+    const c = codigos.find(k => k.codigo === x.codigo);
+    const el = document.createElement('article'); el.className = 'sol' + (x.estado === 'resuelta' ? ' hecha' : '');
+    const esMail = /@/.test(x.contacto || '');
+    const wa = esMail ? '' : waLink(x.contacto, `Hola ${x.nombre || ''}! Te escribo por el detector "¿Lo hizo una IA?".`);
+    el.innerHTML = `<div class="top"><b>${esc(x.nombre || 'Sin nombre')}${x.institucion ? ' · ' + esc(x.institucion) : ''}</b><span class="row" style="gap:6px">${x.estado === 'nueva' ? '<span class="pill nueva">Nuevo</span>' : ''}<span class="nums">${fecha(x.fecha)}</span></span></div>
+      <div class="nums">${esc(TIPO_SOL[x.tipo] || x.tipo)}${x.uso ? ' · ' + esc(x.uso) : ''}${x.codigo ? ' · código ' + esc(x.codigo) : ''}${c ? ' · usó ' + c.usados + ' de ' + c.limite : ''}</div>
+      <div>${esc(x.contacto || '')}</div>
+      ${x.comentario ? `<p class="muted">"${esc(x.comentario)}"</p>` : ''}
+      <div class="row">
+        ${wa ? `<a class="btn small" href="${wa}" target="_blank" rel="noopener" style="text-decoration:none">Escribirle por WhatsApp</a>` : ''}
+        ${esMail ? `<a class="btn small" href="mailto:${esc(x.contacto)}" style="text-decoration:none">Escribirle un mail</a>` : ''}
+        ${c ? '<button class="btn ghost small" data-a="s10">+10 análisis</button><button class="btn ghost small" data-a="s50">+50</button>' : ''}
+        ${c && c.activo ? '<button class="btn ghost small" data-a="off">Desactivar código</button>' : ''}
+        ${x.estado !== 'resuelta' ? '<button class="btn ghost small" data-a="ok">Marcar resuelto</button>' : '<button class="btn ghost small" data-a="reabrir">Reabrir</button>'}
+      </div><div class="msg" data-m hidden></div>`;
+    el.addEventListener('click', async e => {
+      const a = e.target.dataset.a; if (!a) return; const m = el.querySelector('[data-m]');
+      try{
+        if (a === 's10' || a === 's50'){ await upd(c, { sumar: a === 's10' ? 10 : 50 }); m.hidden = false; m.textContent = 'Listo: se sumaron ' + (a === 's10' ? 10 : 50) + ' análisis al código ' + x.codigo + '.'; }
+        if (a === 'off'){ await upd(c, { activo: false }); }
+        if (a === 'ok' || a === 'reabrir'){ await api('solicitud_estado', { id: x.id, estado: a === 'ok' ? 'resuelta' : 'vista' }); x.estado = a === 'ok' ? 'resuelta' : 'vista'; }
+        else if (x.estado === 'nueva'){ await api('solicitud_estado', { id: x.id, estado: 'vista' }); x.estado = 'vista'; }
+        if (a !== 's10' && a !== 's50') drawSolicitudes(); else { const keep = m.textContent; drawSolicitudes(); }
+      }catch(err){ m.hidden = false; m.textContent = 'No se pudo: ' + err.message; }
+    });
+    box.append(el);
+  });
+}
+$('#sol-cargar').onclick = cargarSolicitudes;
+$('#sol-pend').onchange = drawSolicitudes;
+
 // ---------- registro
 let registro = [];
 const TIPOS = { texto: 'Texto', imagen: 'Imagen', video: 'Video', cuestionario: 'Cuestionario' };

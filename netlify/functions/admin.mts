@@ -39,6 +39,24 @@ export default async (req: Request) => {
     return json({ ok: true });
   }
 
+  if (accion === "solicitudes") {
+    const st = getStore({ name: "solicitudes", consistency: "strong" });
+    const { blobs } = await st.list();
+    const keys = blobs.map((b: any) => b.key).sort().reverse().slice(0, 300);
+    const items = await Promise.all(keys.map(async (k: string) => ({ id: k, ...((await st.get(k, { type: "json" })) || {}) })));
+    return json({ solicitudes: items });
+  }
+
+  if (accion === "solicitud_estado") {
+    const st = getStore({ name: "solicitudes", consistency: "strong" });
+    const id = String(body.id || "");
+    const rec: any = await st.get(id, { type: "json" });
+    if (!rec) return json({ error: "no_existe" }, 404);
+    rec.estado = ["nueva", "vista", "resuelta"].includes(body.estado) ? body.estado : "vista";
+    await st.setJSON(id, rec);
+    return json({ ok: true });
+  }
+
   if (accion === "crear") {
     const nombre = String(body.nombre || "").trim().slice(0, 80);
     const limite = Math.max(0, Math.min(100000, Math.round(Number(body.limite) || 0)));
