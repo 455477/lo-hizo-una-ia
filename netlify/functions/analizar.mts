@@ -1,6 +1,8 @@
 // Función que recibe texto, imágenes o fotogramas y devuelve un informe en JSON.
 // Usa ANTHROPIC_API_KEY (Claude) si está cargada; si no, GEMINI_API_KEY (Google).
-// Opcional: ACCESS_CODE para que solo quien tenga el código pueda usarla.
+// Acceso: cada persona usa un código guardado en Netlify Blobs (store "accesos") con un límite de análisis.
+// ADMIN_CODE (variable de entorno) entra sin límite y administra los códigos desde /admin.html.
+import { getStore } from "@netlify/blobs";
 
 export default async (req: Request) => {
   const json = (obj: unknown, status = 200) =>
@@ -11,8 +13,17 @@ export default async (req: Request) => {
   let body: any;
   try { body = await req.json(); } catch { return json({ error: "pedido_invalido" }, 400); }
 
-  const code = Netlify.env.get("ACCESS_CODE");
-  if (code && String(body.codigo || "").trim() !== code) return json({ error: "codigo" }, 401);
+  const codigo = String(body.codigo || "").trim().toUpperCase();
+  const adminCode = (Netlify.env.get("ADMIN_CODE") || "").trim().toUpperCase();
+  const contacto = Netlify.env.get("CONTACTO") || "";
+  const accesos = getStore({ name: "accesos", consistency: "strong" });
+  let acceso: any = null;
+  if (!codigo) return json({ error: "codigo" }, 401);
+  if (!(adminCode && codigo === adminCode)) {
+    acceso = await accesos.get(codigo, { type: "json" });
+    if (!acceso || !acceso.activo) return json({ error: "codigo" }, 401);
+    if ((acceso.usados || 0) >= (acceso.limite || 0)) return json({ error: "sin_cupo", contacto }, 402);
+  }
 
   const tipo = ["texto", "imagen", "video", "cuestionario"].includes(body.tipo) ? body.tipo : null;
   if (!tipo) return json({ error: "pedido_invalido" }, 400);
@@ -136,7 +147,15 @@ ${formato}`;
       if (a >= 0 && b > a) { try { parsed = JSON.parse(out.slice(a, b + 1)); } catch { /* sigue null */ } }
     }
     if (!parsed || typeof parsed !== "object") return json({ error: "respuesta_invalida" }, 502);
-    return json(parsed);
+    let restantes: number | null = null;
+    if (acceso) {
+      const fresco: any = (await accesos.get(codigo, { type: "json" })) || acceso;
+      fresco.usados = (fresco.usados || 0) + 1;
+      fresco.ultimo = Date.now();
+      await accesos.setJSON(codigo, fresco);
+      restantes = Math.max(0, (fresco.limite || 0) - fresco.usados);
+    }
+    return json({ ...parsed, _restantes: restantes, _nombre: acceso ? acceso.nombre : "Administrador" });
   } catch (e: any) {
     return json({ error: "ia", detalle: String(e?.message || e).slice(0, 300) }, 502);
   }

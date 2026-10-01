@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Códigos · ¿Lo hizo una IA?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;700&family=Literata:opsz,wght@7..72,400;7..72,600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Panel de control: alta de códigos arriba, lista de códigos como fichas con barra de consumo */
+:root{
+  --bg:#eef0f3; --paper:#ffffff; --ink:#1b2333; --muted:#5d6678; --line:#d5d9e1;
+  --accent:#2f43b8; --accent-ink:#ffffff; --ok:#1f7a4d; --warn:#a86a00; --bad:#b3261e; --soft:#e4e8f6;
+  --f-display:"Familjen Grotesk","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Literata",Georgia,serif; --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#12161f; --paper:#1a2030; --ink:#e7eaf2; --muted:#9aa3b6; --line:#2c3447;
+  --accent:#8b9cff; --accent-ink:#0f1320; --ok:#5fcf97; --warn:#f0b54a; --bad:#ff7d72; --soft:#232b42; color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5;padding-inline:16px;padding-block:24px 56px}
+[hidden]{display:none!important}
+.wrap{max-width:900px;margin:0 auto;display:grid;gap:22px}
+h1{font-family:var(--f-display);font-size:clamp(28px,5vw,40px);margin:0;line-height:1.05}
+h2{font-family:var(--f-display);font-size:20px;margin:0}
+.muted{color:var(--muted);font-size:14px;margin:0}
+.box{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:18px;display:grid;gap:12px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+input{font:inherit;font-size:15px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);min-width:0}
+label{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:grid;gap:4px}
+.btn{font-family:var(--f-display);font-weight:700;font-size:15px;padding:10px 16px;border-radius:8px;border:0;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.btn.ghost{background:none;color:var(--ink);border:1px solid var(--line)}
+.btn.small{font-size:13px;padding:7px 10px}
+.btn.danger{background:none;color:var(--bad);border:1px solid color-mix(in srgb,var(--bad) 45%,transparent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.list{display:grid;gap:10px}
+.code{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:grid;gap:10px}
+.code.off{opacity:.6}
+.code-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline}
+.code-head b{font-family:var(--f-display);font-size:17px;overflow-wrap:anywhere}
+.mono{font-family:var(--f-mono);font-size:14px;letter-spacing:.06em}
+.bar{height:8px;border-radius:4px;background:var(--soft);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ok)}
+.bar.warn i{background:var(--warn)} .bar.bad i{background:var(--bad)}
+.nums{font-family:var(--f-mono);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pill{font-family:var(--f-mono);font-size:11px;padding:2px 7px;border-radius:4px;background:var(--soft);color:var(--muted)}
+.msg{font-size:14px;padding:10px 12px;border-radius:8px;background:var(--soft)}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.stat{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.stat b{display:block;font-family:var(--f-display);font-size:26px;font-variant-numeric:tabular-nums}
+.stat span{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div style="display:grid;gap:6px">
+    <a href="/" class="muted">← Volver al detector</a>
+    <h1>Códigos de acceso</h1>
+    <p class="muted">Creá un código por persona o institución, decidí cuántos análisis tiene y compartile el link.</p>
+  </div>
+
+  <section class="box" id="login">
+    <h2>Entrar</h2>
+    <form class="row" id="login-form">
+      <input type="password" id="admin" placeholder="Tu código de administrador" autocomplete="current-password" aria-label="Código de administrador" style="flex:1 1 220px">
+      <button class="btn" type="submit">Entrar</button>
+    </form>
+    <p class="muted" id="login-msg"></p>
+  </section>
+
+  <div id="panel" hidden style="display:grid;gap:22px">
+    <div class="summary" id="summary"></div>
+
+    <section class="box">
+      <h2>Nuevo código</h2>
+      <form class="row" id="new-form">
+        <label style="flex:2 1 220px">Para quién<input type="text" id="n-nombre" placeholder="Ej.: Colegio San Martín – Prof. Gómez" required></label>
+        <label style="flex:1 1 110px">Análisis<input type="number" id="n-limite" min="1" value="20"></label>
+        <label style="flex:2 1 200px">Nota (opcional)<input type="text" id="n-nota" placeholder="Ej.: prueba gratis, pagó $5.000"></label>
+        <button class="btn" type="submit" style="align-self:end">Crear código</button>
+      </form>
+      <div id="new-out"></div>
+    </section>
+
+    <section style="display:grid;gap:12px">
+      <div class="row" style="justify-content:space-between">
+        <h2>Códigos</h2>
+        <input type="text" id="filter" placeholder="Buscar…" aria-label="Buscar código" style="flex:0 1 240px">
+      </div>
+      <div class="list" id="list"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => { const d = document.createElement('span'); d.textContent = String(s ?? ''); return d.innerHTML; };
+let ADMIN = ''; try{ ADMIN = sessionStorage.getItem('admin') || ''; }catch{}
+let codigos = [];
+const base = location.origin + '/';
+
+async function api(accion, extra = {}){
+  const r = await fetch('/api/admin', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ admin: ADMIN, accion, ...extra }) });
+  const d = await r.json().catch(() => ({}));
+  if (r.status === 401) throw new Error('no_autorizado');
+  if (!r.ok || d.error) throw new Error(d.error || ('Error ' + r.status));
+  return d;
+}
+function link(c){ return base + '?c=' + encodeURIComponent(c.codigo); }
+function mensaje(c){
+  return `Hola! Te comparto el detector "¿Lo hizo una IA?" para revisar si textos, imágenes o videos fueron hechos con inteligencia artificial.\n\nEntrá desde este link (ya trae tu código):\n${link(c)}\n\nTu código es ${c.codigo} y tiene ${Math.max(0, c.limite - c.usados)} análisis.`;
+}
+async function copiar(txt, btn){
+  const old = btn.textContent;
+  try{ await navigator.clipboard.writeText(txt); btn.textContent = 'Copiado'; }catch{ btn.textContent = 'No se pudo copiar'; }
+  setTimeout(() => btn.textContent = old, 1600);
+}
+function fecha(t){ return t ? new Date(t).toLocaleString('es-AR', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : 'nunca'; }
+
+function draw(){
+  const activos = codigos.filter(c => c.activo), usados = codigos.reduce((a, c) => a + (c.usados || 0), 0);
+  const agotados = codigos.filter(c => c.activo && c.usados >= c.limite).length;
+  $('#summary').innerHTML = [['Códigos activos', activos.length], ['Análisis usados', usados], ['Sin análisis', agotados]].map(([l, v]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join('');
+  const q = $('#filter').value.trim().toLowerCase();
+  const list = codigos.filter(c => !q || (c.nombre + ' ' + c.codigo + ' ' + (c.nota || '')).toLowerCase().includes(q));
+  const box = $('#list'); box.innerHTML = '';
+  if (!list.length){ box.innerHTML = `<p class="muted">${codigos.length ? 'Ningún código coincide.' : 'Todavía no creaste códigos. Creá el primero arriba.'}</p>`; return; }
+  list.forEach(c => {
+    const pct = c.limite ? Math.min(100, Math.round(c.usados / c.limite * 100)) : 100;
+    const el = document.createElement('article'); el.className = 'code' + (c.activo ? '' : ' off');
+    el.innerHTML = `
+      <div class="code-head"><b>${esc(c.nombre)}</b><span class="row"><span class="mono">${esc(c.codigo)}</span>${c.activo ? '' : '<span class="pill">Desactivado</span>'}</span></div>
+      <div class="bar ${pct >= 100 ? 'bad' : pct >= 80 ? 'warn' : ''}"><i style="width:${pct}%"></i></div>
+      <div class="row" style="justify-content:space-between"><span class="nums">${c.usados} de ${c.limite} usados · quedan ${Math.max(0, c.limite - c.usados)}</span><span class="nums">Último uso: ${fecha(c.ultimo)}</span></div>
+      ${c.nota ? `<p class="muted">${esc(c.nota)}</p>` : ''}
+      <div class="row">
+        <button class="btn small" data-a="wa">Copiar mensaje para enviar</button>
+        <button class="btn ghost small" data-a="link">Copiar link</button>
+        <button class="btn ghost small" data-a="s10">+10</button>
+        <button class="btn ghost small" data-a="s50">+50</button>
+        <button class="btn ghost small" data-a="lim">Cambiar límite</button>
+        <button class="btn ghost small" data-a="tog">${c.activo ? 'Desactivar' : 'Activar'}</button>
+        <button class="btn danger small" data-a="del">Borrar</button>
+      </div>
+      <div class="row" data-zone hidden></div>`;
+    el.addEventListener('click', async e => {
+      const a = e.target.dataset.a; if (!a) return;
+      const zone = el.querySelector('[data-zone]');
+      try{
+        if (a === 'wa') return copiar(mensaje(c), e.target);
+        if (a === 'link') return copiar(link(c), e.target);
+        if (a === 's10' || a === 's50') await upd(c, { sumar: a === 's10' ? 10 : 50 });
+        if (a === 'tog') await upd(c, { activo: !c.activo });
+        if (a === 'lim'){
+          zone.hidden = false;
+          zone.innerHTML = `<input type="number" min="0" value="${c.limite}" aria-label="Nuevo límite" style="width:120px"><button class="btn small" data-a="lim-ok">Guardar</button><button class="btn ghost small" data-a="cancel">Cancelar</button>`;
+        }
+        if (a === 'lim-ok') await upd(c, { limite: zone.querySelector('input').value });
+        if (a === 'del'){
+          zone.hidden = false;
+          zone.innerHTML = `<span>¿Borrar el código ${esc(c.codigo)}? Quien lo tenga ya no va a poder usarlo.</span><button class="btn danger small" data-a="del-ok">Sí, borrar</button><button class="btn ghost small" data-a="cancel">Cancelar</button>`;
+        }
+        if (a === 'del-ok'){ await api('borrar', { codigo: c.codigo }); codigos = codigos.filter(x => x.codigo !== c.codigo); draw(); }
+        if (a === 'cancel'){ zone.hidden = true; zone.innerHTML = ''; }
+      }catch(err){ zone.hidden = false; zone.innerHTML = `<span class="msg">No se pudo guardar: ${esc(err.message)}</span>`; }
+    });
+    box.append(el);
+  });
+}
+async function upd(c, cambios){
+  const d = await api('editar', { codigo: c.codigo, cambios });
+  codigos = codigos.map(x => x.codigo === c.codigo ? d.codigo : x); draw();
+}
+async function cargar(){
+  try{
+    const d = await api('listar');
+    codigos = d.codigos; $('#login').hidden = true; $('#panel').hidden = false; draw();
+  }catch(e){
+    $('#login').hidden = false; $('#panel').hidden = true;
+    $('#login-msg').textContent = e.message === 'no_autorizado' ? (ADMIN ? 'Ese código de administrador no es correcto.' : '') : 'No se pudo cargar: ' + e.message;
+  }
+}
+$('#login-form').onsubmit = e => { e.preventDefault(); ADMIN = $('#admin').value.trim(); try{ sessionStorage.setItem('admin', ADMIN); }catch{} cargar(); };
+$('#new-form').onsubmit = async e => {
+  e.preventDefault();
+  const btn = e.submitter; btn.disabled = true;
+  try{
+    const d = await api('crear', { nombre: $('#n-nombre').value, limite: $('#n-limite').value, nota: $('#n-nota').value });
+    codigos.unshift(d.codigo); draw();
+    const c = d.codigo, out = $('#new-out');
+    out.innerHTML = `<div class="msg" style="display:grid;gap:8px"><span>Listo: <b class="mono">${esc(c.codigo)}</b> para ${esc(c.nombre)} con ${c.limite} análisis.</span><div class="row"><button class="btn small" id="cp-wa">Copiar mensaje para enviar</button><button class="btn ghost small" id="cp-link">Copiar link</button></div></div>`;
+    $('#cp-wa').onclick = ev => copiar(mensaje(c), ev.target);
+    $('#cp-link').onclick = ev => copiar(link(c), ev.target);
+    $('#n-nombre').value = ''; $('#n-nota').value = '';
+  }catch(err){ $('#new-out').innerHTML = `<p class="msg">No se pudo crear: ${esc(err.message === 'falta_nombre' ? 'poné para quién es.' : err.message)}</p>`; }
+  finally{ btn.disabled = false; }
+};
+$('#filter').oninput = draw;
+if (ADMIN) cargar();
+</script>
+</body>
+</html>

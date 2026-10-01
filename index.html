@@ -130,12 +130,22 @@ details summary{cursor:pointer;font-family:var(--f-display);font-weight:700}
     <p class="lede">Para colegios, empresas, familias o cualquiera que quiera saber. Pegá un texto o subí imágenes, capturas de Instagram o un video. Te devolvemos una estimación con las pistas concretas, para que también aprendas a verlas.</p>
   </header>
 
+  <section class="box pad" aria-labelledby="acc-t" id="acceso">
+    <div class="row" style="justify-content:space-between">
+      <h2 id="acc-t">Tu código de acceso</h2>
+      <span class="tag" id="acc-estado">Sin código</span>
+    </div>
+    <div class="row">
+      <input type="text" id="f-codigo" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Ej.: K7M-2QX" style="max-width:220px;font-family:var(--f-mono);letter-spacing:.08em;text-transform:uppercase" aria-label="Código de acceso">
+      <span class="hint" id="acc-hint">Necesitás un código para analizar. Te lo da quien te compartió la página.</span>
+    </div>
+  </section>
+
   <section class="box pad" aria-labelledby="ficha-t">
     <h2 id="ficha-t">¿Para qué lo vas a usar?</h2>
     <div class="modes" id="modes" role="group" aria-label="Uso"></div>
     <div class="fields" id="fields"></div>
     <p class="hint" id="ficha-hint"></p>
-    <div class="field" id="code-wrap" hidden><label for="f-codigo">Código de acceso</label><input type="password" id="f-codigo" autocomplete="off" placeholder="Pedíselo a quien te pasó la página"></div>
   </section>
 
   <section class="box" aria-label="Qué querés analizar">
@@ -275,9 +285,19 @@ function drawModes(){
 $('#modes').addEventListener('click', e => { const b = e.target.closest('.mode'); if (!b) return; modo = b.dataset.m; store.set('modo', modo); drawModes(); });
 const ficha = () => ({ modo, campos: [0,1,2,3].map(i => ($('#f-' + i)?.value || '').trim()) });
 const contextoDe = f => ({ modo: f.modo, datos: f.campos.slice(1).map((v, i) => [MODES[f.modo].fields[i+1][0], v]).filter(([, v]) => v) });
-$('#f-codigo').value = store.get('codigo','');
-if ($('#f-codigo').value) $('#code-wrap').hidden = false;
-$('#f-codigo').oninput = () => store.set('codigo', $('#f-codigo').value.trim());
+(() => {
+  const q = new URLSearchParams(location.search).get('c');
+  if (q){ store.set('codigo', q.trim().toUpperCase()); history.replaceState(null, '', location.pathname); }
+})();
+$('#f-codigo').value = store.get('codigo', '');
+function accEstado(restantes, nombre){
+  const tag = $('#acc-estado'), hint = $('#acc-hint');
+  if (restantes === null && nombre){ tag.textContent = 'Sin límite'; hint.textContent = 'Entraste como ' + nombre + '.'; return; }
+  if (typeof restantes === 'number'){ tag.textContent = restantes + (restantes === 1 ? ' análisis' : ' análisis') + ' disponibles'; hint.textContent = (nombre ? nombre + '. ' : '') + 'Cada imagen, texto, video o cuestionario usa 1 análisis.'; store.set('restantes', restantes); store.set('acc-nombre', nombre || ''); return; }
+  tag.textContent = $('#f-codigo').value ? 'Código cargado' : 'Sin código';
+}
+if (store.get('codigo','')){ const r = store.get('restantes', null); accEstado(typeof r === 'number' ? r : undefined, store.get('acc-nombre','')); }
+$('#f-codigo').oninput = () => { store.set('codigo', $('#f-codigo').value.trim().toUpperCase()); store.set('restantes', null); accEstado(); };
 
 // ---------- texto
 const updWc = () => { $('#wc').textContent = (($('#txt').value.trim().match(/\S+/g)) || []).length + ' palabras'; };
@@ -407,9 +427,10 @@ async function analizar(payload){
     r = await fetch('/api/analizar', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(p) });
   }catch{ throw new Error('Sin conexión. Revisá internet y probá de nuevo.'); }
   let d = null; try{ d = await r.json(); }catch{}
-  if (r.ok && d && !d.error) return d;
+  if (r.ok && d && !d.error){ accEstado(d._restantes, d._nombre); return d; }
   const e = d && d.error;
-  if (e === 'codigo'){ $('#code-wrap').hidden = false; $('#f-codigo').focus(); throw new Error('Esta página pide un código de acceso. Escribilo arriba, en la ficha, y volvé a analizar.'); }
+  if (e === 'codigo'){ $('#f-codigo').focus(); $('#acceso').scrollIntoView({ behavior: 'smooth' }); throw new Error($('#f-codigo').value.trim() ? 'Ese código no existe o está desactivado. Revisalo (arriba de todo) o pedí uno nuevo.' : 'Para analizar necesitás un código de acceso. Escribilo arriba de todo.'); }
+  if (e === 'sin_cupo'){ accEstado(0); throw new Error('Se terminaron los análisis de tu código. ' + (d.contacto ? d.contacto : 'Para seguir, pedile más a quien te dio el código.')); }
   if (e === 'sin_clave') throw new Error('Todavía falta configurar la clave de la IA en el servidor.');
   if (e === 'texto_corto') throw new Error('El texto es muy corto. Pegá al menos 25 palabras.');
   if (e === 'ia') throw new Error('La IA no pudo responder: ' + (d.detalle || 'error desconocido'));
