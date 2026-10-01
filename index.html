@@ -120,9 +120,28 @@ details summary{cursor:pointer;font-family:var(--f-display);font-weight:700}
   body.print-cuest .no-print{display:none!important}
 }
 @media (max-width:560px){.verdict,.verdict.with-img{grid-template-columns:1fr}.score{font-size:44px}}
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;margin:-24px -16px 22px;padding:10px 16px;background:var(--paper);border-bottom:1px solid var(--line);box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.topbar-in{max-width:900px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.topbar .brand{font-family:var(--f-display);font-weight:700;font-size:16px;color:var(--ink);text-decoration:none;white-space:nowrap}
+.topbar .estado{font-family:var(--f-mono);font-size:12px;padding:4px 9px;border-radius:999px;background:var(--soft);color:var(--muted);white-space:nowrap}
+.topbar .estado.admin{background:var(--accent);color:var(--accent-ink)}
+.topbar .acts{display:flex;gap:8px;flex-wrap:wrap}
+.topbar .btn{font-size:14px;padding:9px 14px;text-decoration:none;display:inline-block}
+@media (max-width:560px){.topbar .lg{display:none}.topbar .btn{font-size:13px;padding:8px 10px}.topbar .brand{font-size:14px}.topbar-in{gap:6px}}
+@media (min-width:561px){.topbar .sm{display:none}}
+.topbar .btn.salir{background:none;color:var(--bad);border:1.5px solid var(--bad)}
 </style>
 </head>
 <body>
+<nav class="topbar" aria-label="Acceso">
+  <div class="topbar-in">
+    <span class="row" style="gap:10px"><a class="brand" href="/">¿Lo hizo una IA?</a><span class="estado" id="top-estado">Sin código</span></span>
+    <span class="acts">
+      <a class="btn" id="top-admin" href="/admin.html"><span class="lg">Entrar como administrador</span><span class="sm">Admin</span></a>
+      <button class="btn salir" id="top-salir" type="button" hidden>Salir</button>
+    </span>
+  </div>
+</nav>
 <div class="wrap">
   <header>
     <span class="eyebrow">Detector de contenido generado</span>
@@ -138,7 +157,6 @@ details summary{cursor:pointer;font-family:var(--f-display);font-weight:700}
     <div class="row">
       <input type="text" id="f-codigo" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Ej.: K7M-2QX" style="max-width:220px;font-family:var(--f-mono);letter-spacing:.08em;text-transform:uppercase" aria-label="Código de acceso">
       <span class="hint" id="acc-hint" style="flex:1 1 200px">Necesitás un código para analizar. Te lo da quien te compartió la página.</span>
-      <button class="btn ghost small" id="acc-salir" type="button" hidden>Salir</button>
     </div>
   </section>
 
@@ -239,7 +257,7 @@ details summary{cursor:pointer;font-family:var(--f-display);font-weight:700}
         <li>Marcas de agua como "Sora", "Veo" o "Kling".</li>
       </ul></div>
     </div>
-    <p class="warning" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><span>Ningún detector es 100 % confiable: da una probabilidad, no una prueba. No acuses a nadie solo por este resultado; usalo para hacer mejores preguntas.</span><a href="/admin.html" style="color:var(--muted)">Administrar códigos</a></p>
+    <p class="warning" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><span>Ningún detector es 100 % confiable: da una probabilidad, no una prueba. No acuses a nadie solo por este resultado; usalo para hacer mejores preguntas.</span></p>
   </section>
 </div>
 
@@ -293,14 +311,19 @@ const contextoDe = f => ({ modo: f.modo, datos: f.campos.slice(1).map((v, i) => 
 $('#f-codigo').value = store.get('codigo', '');
 function accEstado(restantes, nombre){
   const tag = $('#acc-estado'), hint = $('#acc-hint');
-  $('#acc-salir').hidden = !$('#f-codigo').value.trim();
+  const cod = $('#f-codigo').value.trim(), esAdmin = store.get('acc-nombre', '') === 'Administrador' || nombre === 'Administrador';
+  $('#top-salir').hidden = !cod;
+  $('#top-salir').innerHTML = esAdmin ? '<span class="lg">Salir del modo administrador</span><span class="sm">Salir</span>' : 'Salir';
+  $('#top-admin').innerHTML = esAdmin ? '<span class="lg">Ir al panel de códigos</span><span class="sm">Panel</span>' : '<span class="lg">Entrar como administrador</span><span class="sm">Admin</span>';
+  const te = $('#top-estado'); te.className = 'estado' + (esAdmin && cod ? ' admin' : '');
+  te.textContent = !cod ? 'Sin código' : esAdmin ? 'Admin' : (typeof restantes === 'number' ? 'Quedan ' + restantes : 'Código ' + cod);
   if (restantes === null && nombre){ tag.textContent = 'Sin límite'; hint.textContent = 'Entraste como ' + nombre + '.'; return; }
   if (typeof restantes === 'number'){ tag.textContent = restantes + (restantes === 1 ? ' análisis' : ' análisis') + ' disponibles'; hint.textContent = (nombre ? nombre + '. ' : '') + 'Cada imagen, texto, video o cuestionario usa 1 análisis.'; store.set('restantes', restantes); store.set('acc-nombre', nombre || ''); return; }
   tag.textContent = $('#f-codigo').value ? 'Código cargado' : 'Sin código';
   hint.textContent = $('#f-codigo').value ? 'Se verifica cuando hacés el primer análisis.' : 'Necesitás un código para analizar. Te lo da quien te compartió la página.';
 }
-$('#acc-salir').onclick = () => { $('#f-codigo').value = ''; store.set('codigo', ''); store.set('restantes', null); store.set('acc-nombre', ''); accEstado(); $('#f-codigo').focus(); };
-if (store.get('codigo','')){ const r = store.get('restantes', null); accEstado(typeof r === 'number' ? r : undefined, store.get('acc-nombre','')); }
+$('#top-salir').onclick = () => { $('#f-codigo').value = ''; store.set('codigo', ''); store.set('restantes', null); store.set('acc-nombre', ''); accEstado(); $('#f-codigo').focus(); };
+{ const r = store.get('restantes', null); accEstado(typeof r === 'number' ? r : undefined, store.get('acc-nombre','')); }
 $('#f-codigo').oninput = () => { store.set('codigo', $('#f-codigo').value.trim().toUpperCase()); store.set('restantes', null); accEstado(); };
 
 // ---------- texto
