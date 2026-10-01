@@ -57,7 +57,7 @@ label{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transfo
 <body>
 <div class="wrap">
   <div style="display:grid;gap:6px">
-    <a href="/" class="muted">← Volver al detector</a>
+    <div class="row" style="justify-content:space-between"><a href="/" class="muted">← Volver al detector</a><button class="btn ghost small" id="salir" hidden>Salir del panel</button></div>
     <h1>Códigos de acceso</h1>
     <p class="muted">Creá un código por persona o institución, decidí cuántos análisis tiene y compartile el link.</p>
   </div>
@@ -177,7 +177,7 @@ async function upd(c, cambios){
 async function cargar(){
   try{
     const d = await api('listar');
-    codigos = d.codigos; $('#login').hidden = true; $('#panel').hidden = false; draw();
+    codigos = d.codigos; $('#login').hidden = true; $('#panel').hidden = false; $('#salir').hidden = false; draw();
   }catch(e){
     $('#login').hidden = false; $('#panel').hidden = true;
     $('#login-msg').textContent = e.message === 'no_autorizado' ? (ADMIN ? 'Ese código de administrador no es correcto.' : '') : 'No se pudo cargar: ' + e.message;
@@ -199,6 +199,11 @@ $('#new-form').onsubmit = async e => {
   finally{ btn.disabled = false; }
 };
 $('#filter').oninput = draw;
+$('#salir').onclick = () => {
+  ADMIN = ''; codigos = []; try{ sessionStorage.removeItem('admin'); }catch{}
+  $('#panel').hidden = true; $('#salir').hidden = true; $('#login').hidden = false;
+  $('#admin').value = ''; $('#new-out').innerHTML = ''; $('#login-msg').textContent = 'Saliste del panel.';
+};
 if (ADMIN) cargar();
 </script>
 </body>
