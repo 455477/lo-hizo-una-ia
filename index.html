@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>¿Lo hizo una IA?</title>
+<meta name="description" content="Detector para colegios, empresas y familias: revisá si un texto, una imagen, un posteo o un video fue hecho con inteligencia artificial.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;700&family=Literata:opsz,wght@7..72,400;7..72,600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Mesa de peritaje: ficha del caso arriba, evidencia en pestañas, informes como fichas, historial al pie */
+:root{
+  --bg:#eef0f3; --paper:#ffffff; --ink:#1b2333; --muted:#5d6678; --line:#d5d9e1;
+  --accent:#2f43b8; --accent-ink:#ffffff; --mark:#ffe36b;
+  --ok:#1f7a4d; --warn:#a86a00; --bad:#b3261e; --soft:#e4e8f6;
+  --f-display:"Familjen Grotesk","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Literata",Georgia,"Times New Roman",serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#12161f; --paper:#1a2030; --ink:#e7eaf2; --muted:#9aa3b6; --line:#2c3447;
+  --accent:#8b9cff; --accent-ink:#0f1320; --mark:#6b5a00;
+  --ok:#5fcf97; --warn:#f0b54a; --bad:#ff7d72; --soft:#232b42; color-scheme:dark}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;padding-inline:16px;padding-block:24px 56px}
+[hidden]{display:none!important}
+img{max-width:100%}
+.wrap{max-width:900px;margin:0 auto;display:grid;gap:28px}
+header{display:grid;gap:10px}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--f-display);font-weight:700;font-size:clamp(34px,7vw,58px);line-height:1;margin:0;letter-spacing:-.02em;text-wrap:balance}
+h1 em{font-style:normal;background:linear-gradient(transparent 58%,var(--mark) 58%);padding:0 .08em}
+.lede{max-width:62ch;color:var(--muted);margin:0}
+h2{font-family:var(--f-display);font-size:22px;margin:0;text-wrap:balance}
+h3{font-family:var(--f-display);font-size:17px;margin:0}
+.box{background:var(--paper);border:1px solid var(--line);border-radius:10px}
+.pad{padding:20px;display:grid;gap:14px}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.field{display:grid;gap:4px;min-width:0}
+.field label{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+input[type=text],input[type=password],textarea{width:100%;font:inherit;font-size:15px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+textarea{min-height:200px;resize:vertical;line-height:1.55}
+.hint{font-size:13px;color:var(--muted);margin:0}
+.tabs{display:flex;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{flex:1;min-width:96px;font-family:var(--f-display);font-weight:700;font-size:16px;padding:14px 12px;background:none;border:0;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:26px 16px;text-align:center;cursor:pointer;display:grid;gap:6px;justify-items:center;background:var(--bg)}
+.drop.over{border-color:var(--accent);background:var(--soft)}
+.drop strong{font-family:var(--f-display);font-size:17px}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
+.thumb{position:relative;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--bg)}
+.thumb img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
+.thumb button{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:0;background:var(--paper);color:var(--ink);cursor:pointer;font-size:15px;line-height:1}
+.thumb .badge{position:absolute;left:4px;bottom:4px;font-family:var(--f-mono);font-size:11px;font-weight:600;padding:2px 6px;border-radius:4px;background:var(--paper);color:var(--ink)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{font-family:var(--f-display);font-weight:700;font-size:16px;padding:12px 20px;border-radius:8px;border:0;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.btn[disabled]{opacity:.5;cursor:default}
+.btn.ghost{background:none;color:var(--ink);border:1px solid var(--line)}
+.btn.small{font-size:14px;padding:8px 12px}
+.status{font-family:var(--f-mono);font-size:13px;color:var(--muted)}
+.alert{padding:12px 14px;border-radius:8px;background:color-mix(in srgb,var(--bad) 12%,transparent);color:var(--ink);border:1px solid color-mix(in srgb,var(--bad) 40%,transparent)}
+
+#results{display:grid;gap:16px}
+.report{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:20px;display:grid;gap:16px}
+.report-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline}
+.report-head h3{min-width:0;overflow-wrap:anywhere}
+.tag{font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:4px;background:var(--soft);color:var(--accent)}
+.verdict{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center}
+.verdict.with-img{grid-template-columns:96px auto 1fr}
+.verdict img{width:96px;height:96px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
+.score{font-family:var(--f-display);font-weight:700;font-size:52px;line-height:1;font-variant-numeric:tabular-nums}
+.score small{font-size:20px;color:var(--muted)}
+.meter{height:12px;border-radius:6px;background:linear-gradient(90deg,var(--ok),var(--warn),var(--bad));position:relative;margin-top:8px}
+.meter i{position:absolute;top:-5px;width:4px;height:22px;background:var(--ink);border-radius:2px;transform:translateX(-2px)}
+.scale{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:11px;color:var(--muted);margin-top:6px}
+.vlabel{font-family:var(--f-display);font-weight:700;font-size:19px}
+.vlabel.ok{color:var(--ok)} .vlabel.warn{color:var(--warn)} .vlabel.bad{color:var(--bad)}
+.summary{margin:0;max-width:65ch}
+.signals{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.signals li{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:10px 12px;border:1px solid var(--line);border-radius:8px;min-width:0}
+.pill{font-family:var(--f-mono);font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;white-space:nowrap;margin-top:3px}
+.pill.ia{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.pill.humano{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.pill.neutro{background:var(--soft);color:var(--muted)}
+.meta-box{font-family:var(--f-mono);font-size:12.5px;background:var(--bg);border-radius:8px;padding:12px;white-space:pre-wrap;overflow-wrap:anywhere}
+.tips{margin:0;padding-left:20px;display:grid;gap:4px}
+details summary{cursor:pointer;font-family:var(--f-display);font-weight:700}
+.warning{font-size:14px;color:var(--muted);margin:0}
+
+.hist-list{display:grid;gap:8px}
+.hist{border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.hist-row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:10px 12px;cursor:pointer;background:none;border:0;width:100%;text-align:left;color:var(--ink);font:inherit}
+.hist-row .num{font-family:var(--f-display);font-weight:700;font-size:20px;font-variant-numeric:tabular-nums;min-width:52px}
+.hist-row .who{min-width:0}
+.hist-row .who b{font-family:var(--f-display)}
+.hist-row .who span{display:block;font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.hist-body{padding:0 12px 12px;display:grid;gap:12px}
+.empty{color:var(--muted);font-size:15px;margin:0}
+
+.guide{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:8px;align-content:start;min-width:0}
+.card ul{margin:0;padding-left:18px;font-size:15px;display:grid;gap:4px}
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.mode{display:grid;gap:2px;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);cursor:pointer;font:inherit}
+.mode b{font-family:var(--f-display);font-size:15px}
+.mode span{font-size:12.5px;color:var(--muted);line-height:1.35}
+.mode[aria-pressed="true"]{border-color:var(--accent);background:var(--soft);box-shadow:inset 0 0 0 1px var(--accent)}
+.qlist{margin:0;padding-left:22px;display:grid;gap:12px}
+.qlist li{padding-left:4px}
+.qlist .exp{display:block;font-size:14px;color:var(--muted);margin-top:4px;padding:8px 10px;border-left:3px solid var(--ok);background:var(--bg);border-radius:0 6px 6px 0}
+.hide-exp .qlist .exp{display:none}
+@media print{
+  body.print-cuest{background:#fff;color:#000;padding:0}
+  body.print-cuest .wrap>*:not(#cuest){display:none!important}
+  body.print-cuest #cuest{border:0;padding:0}
+  body.print-cuest .no-print{display:none!important}
+}
+@media (max-width:560px){.verdict,.verdict.with-img{grid-template-columns:1fr}.score{font-size:44px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Detector de contenido generado</span>
+    <h1>¿Lo hizo una <em>IA</em>?</h1>
+    <p class="lede">Para colegios, empresas, familias o cualquiera que quiera saber. Pegá un texto o subí imágenes, capturas de Instagram o un video. Te devolvemos una estimación con las pistas concretas, para que también aprendas a verlas.</p>
+  </header>
+
+  <section class="box pad" aria-labelledby="ficha-t">
+    <h2 id="ficha-t">¿Para qué lo vas a usar?</h2>
+    <div class="modes" id="modes" role="group" aria-label="Uso"></div>
+    <div class="fields" id="fields"></div>
+    <p class="hint" id="ficha-hint"></p>
+    <div class="field" id="code-wrap" hidden><label for="f-codigo">Código de acceso</label><input type="password" id="f-codigo" autocomplete="off" placeholder="Pedíselo a quien te pasó la página"></div>
+  </section>
+
+  <section class="box" aria-label="Qué querés analizar">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-k="texto">Texto</button>
+      <button class="tab" role="tab" aria-selected="false" data-k="imagen">Imágenes / IG</button>
+      <button class="tab" role="tab" aria-selected="false" data-k="video">Video</button>
+    </div>
+
+    <div class="pad" id="p-texto">
+      <label for="txt" class="hint">Trabajo práctico, ensayo, posteo o mail. Cuanto más largo mejor (ideal más de 150 palabras).</label>
+      <textarea id="txt" placeholder="Pegá el texto acá…"></textarea>
+      <div class="row">
+        <button class="btn" id="go-texto">Analizar texto</button>
+        <button class="btn ghost" id="pick-txt" type="button">Subir .txt</button>
+        <input type="file" id="file-txt" accept=".txt,text/plain" hidden>
+        <span class="status" id="wc">0 palabras</span>
+      </div>
+    </div>
+
+    <div class="pad" id="p-imagen" hidden>
+      <div class="drop" id="drop-img" tabindex="0" role="button" aria-label="Elegir imágenes">
+        <strong>Soltá las imágenes acá o tocá para elegirlas</strong>
+        <span class="hint">Hasta 10 a la vez. JPG, PNG o WebP. De Instagram: guardá la foto o hacé captura.</span>
+      </div>
+      <input type="file" id="file-img" accept="image/jpeg,image/png,image/webp,image/*" multiple hidden>
+      <div class="thumbs" id="thumbs"></div>
+      <div class="row"><button class="btn" id="go-imagen" disabled>Analizar imágenes</button><button class="btn ghost" id="clear-img" hidden>Quitar todas</button><span class="status" id="istat"></span></div>
+      <p class="hint">Si podés, subí el archivo original y no una captura: el original a veces trae marcas ocultas que delatan a la IA.</p>
+    </div>
+
+    <div class="pad" id="p-video" hidden>
+      <div class="drop" id="drop-vid" tabindex="0" role="button" aria-label="Elegir video">
+        <strong>Soltá el video acá o tocá para elegirlo</strong>
+        <span class="hint">MP4 o WebM (los .MOV de iPhone a veces no abren: pasalos por WhatsApp o convertilos). Se revisan 6 fotogramas.</span>
+      </div>
+      <input type="file" id="file-vid" accept="video/*" hidden>
+      <div class="thumbs" id="vthumbs"></div>
+      <div class="row"><button class="btn" id="go-video" disabled>Analizar video</button><span class="status" id="vstat"></span></div>
+    </div>
+  </section>
+
+  <div id="alert" class="alert" role="alert" hidden></div>
+  <section id="results" aria-live="polite"></section>
+  <section class="box pad" id="cuest" hidden aria-live="polite">
+    <div class="row no-print" style="justify-content:space-between">
+      <h2 id="cuest-t">Cuestionario</h2>
+      <button class="btn" id="cuest-go"></button>
+    </div>
+    <p class="hint no-print" id="cuest-hint"></p>
+    <div id="cuest-out"></div>
+  </section>
+
+  <section class="box pad" aria-labelledby="hist-t">
+    <div class="row" style="justify-content:space-between">
+      <h2 id="hist-t">Historial</h2>
+      <div class="row">
+        <button class="btn ghost small" id="csv">Descargar planilla (CSV)</button>
+        <button class="btn ghost small" id="wipe">Borrar todo</button>
+      </div>
+    </div>
+    <div class="row" id="wipe-confirm" hidden><span>¿Borrar todo el historial de este navegador?</span><button class="btn small" id="wipe-yes">Sí, borrar</button><button class="btn ghost small" id="wipe-no">Cancelar</button></div>
+    <input type="text" id="h-filter" placeholder="Buscar por alumno, curso, materia o trabajo…" aria-label="Buscar en el historial">
+    <div class="hist-list" id="hist"></div>
+    <p class="hint">El historial se guarda solo en este navegador. Si cambiás de compu o borrás los datos del navegador, se pierde: descargá la planilla para guardarlo.</p>
+  </section>
+
+  <section style="display:grid;gap:14px">
+    <h2>Cómo darte cuenta sin herramientas</h2>
+    <div class="guide">
+      <div class="card"><h3>Textos</h3><ul>
+        <li>Frases de manual: "en la era digital", "cabe destacar", "en conclusión".</li>
+        <li>Todo prolijo, sin errores, pero sin opinión propia ni ejemplos personales.</li>
+        <li>Listas de tres cosas una y otra vez.</li>
+        <li>Datos o citas que no existen cuando los buscás.</li>
+        <li>Pedile que te explique dos ideas en voz alta.</li>
+      </ul></div>
+      <div class="card"><h3>Imágenes</h3><ul>
+        <li>Manos, dedos, dientes y orejas raros.</li>
+        <li>Letras de carteles que no se leen o son garabatos.</li>
+        <li>Piel demasiado lisa, luz de "estudio" en todo.</li>
+        <li>Fondos que se derriten u objetos que se mezclan.</li>
+        <li>En Instagram: etiqueta "Info de IA" debajo del usuario.</li>
+      </ul></div>
+      <div class="card"><h3>Videos</h3><ul>
+        <li>Clips muy cortos (5 a 10 s) con cortes constantes.</li>
+        <li>Cosas que aparecen o desaparecen entre cuadros.</li>
+        <li>Boca que no coincide con la voz; parpadeo raro.</li>
+        <li>Movimientos físicos imposibles (agua, pelo, manos).</li>
+        <li>Marcas de agua como "Sora", "Veo" o "Kling".</li>
+      </ul></div>
+    </div>
+    <p class="warning">Ningún detector es 100 % confiable: da una probabilidad, no una prueba. No acuses a nadie solo por este resultado; usalo para hacer mejores preguntas.</p>
+  </section>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => { const d = document.createElement('span'); d.textContent = String(s ?? ''); return d.innerHTML; };
+const store = {
+  get(k, def){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; }catch{ return def; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} }
+};
+
+// ---------- pestañas
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', x === t));
+  ['texto','imagen','video'].forEach(k => $('#p-'+k).hidden = k !== t.dataset.k);
+});
+
+// ---------- ficha
+const MODES = {
+  educacion: { nombre: 'Educación', desc: 'Colegios, facultades, institutos',
+    fields: [['Alumno/a', 'Ej.: Martina López'], ['Curso', 'Ej.: 4.º B'], ['Materia', 'Ej.: Historia'], ['Trabajo', 'Ej.: TP Revolución de Mayo']],
+    cuest: 'Armar preguntas para el alumno', cuestHint: 'Preguntas sobre el contenido para comprobar si el alumno lo sabe de verdad, con la respuesta esperada de cada una.' },
+  empresa: { nombre: 'Empresa / RR. HH.', desc: 'CV, cartas, informes, proveedores, reclamos',
+    fields: [['Persona o proveedor', 'Ej.: Juan Pérez'], ['Puesto o área', 'Ej.: Ventas'], ['Documento', 'Ej.: CV, carta, informe, reclamo'], ['Referencia', 'Ej.: Búsqueda octubre']],
+    cuest: 'Armar preguntas de entrevista', cuestHint: 'Preguntas para comprobar que la persona domina lo que presentó, y qué pruebas pedirle.' },
+  redes: { nombre: 'Redes y noticias', desc: 'Posteos virales, noticias, cuentas',
+    fields: [['Cuenta o fuente', 'Ej.: @cuenta'], ['Red o medio', 'Ej.: Instagram, TikTok'], ['Tema', 'Ej.: inundación en…'], ['Link', 'Pegá el link si lo tenés']],
+    cuest: 'Armar pasos para verificarlo', cuestHint: 'Qué buscar y dónde, para confirmar si la publicación es real antes de compartirla.' },
+  personal: { nombre: 'Personal / familia', desc: 'Lo que te mandan por WhatsApp o mail',
+    fields: [['Quién te lo mandó', 'Ej.: número desconocido'], ['Por dónde llegó', 'Ej.: WhatsApp'], ['De qué se trata', 'Ej.: pide plata urgente'], ['Notas', 'Opcional']],
+    cuest: 'Qué preguntar antes de creerlo', cuestHint: 'Preguntas y chequeos simples para no caer en un engaño.' },
+  compras: { nombre: 'Compras y ventas', desc: 'Productos, reseñas, comprobantes de pago',
+    fields: [['Vendedor o cliente', 'Ej.: usuario de ML'], ['Plataforma', 'Ej.: ML, Instagram'], ['Producto u operación', 'Ej.: taladro, transferencia'], ['Monto o referencia', 'Ej.: $85.000']],
+    cuest: 'Qué verificar antes de pagar o entregar', cuestHint: 'Chequeos concretos para confirmar que el producto, la reseña o el pago son reales.' },
+};
+let modo = store.get('modo', 'educacion'); if (!MODES[modo]) modo = 'educacion';
+function drawModes(){
+  $('#modes').innerHTML = Object.entries(MODES).map(([k, m]) => `<button type="button" class="mode" data-m="${k}" aria-pressed="${k === modo}"><b>${esc(m.nombre)}</b><span>${esc(m.desc)}</span></button>`).join('');
+  const m = MODES[modo], prev = store.get('ficha-' + modo, []), lists = histLists();
+  $('#fields').innerHTML = m.fields.map(([lab, ph], i) => `<div class="field"><label for="f-${i}">${esc(lab)}</label><input type="text" id="f-${i}" list="dl-${i}" autocomplete="off" placeholder="${esc(ph)}" value="${esc(prev[i] || '')}"><datalist id="dl-${i}">${(lists[i] || []).map(v => `<option value="${esc(v)}">`).join('')}</datalist></div>`).join('');
+  $('#ficha-hint').textContent = `Todo es opcional. "${m.fields[0][0]}" no se manda a la IA: queda solo en el historial de este navegador. Los otros datos sí se mandan, para que el análisis tenga contexto.`;
+  $('#fields').querySelectorAll('input').forEach(inp => inp.oninput = () => store.set('ficha-' + modo, [0,1,2,3].map(i => $('#f-' + i).value)));
+}
+$('#modes').addEventListener('click', e => { const b = e.target.closest('.mode'); if (!b) return; modo = b.dataset.m; store.set('modo', modo); drawModes(); });
+const ficha = () => ({ modo, campos: [0,1,2,3].map(i => ($('#f-' + i)?.value || '').trim()) });
+const contextoDe = f => ({ modo: f.modo, datos: f.campos.slice(1).map((v, i) => [MODES[f.modo].fields[i+1][0], v]).filter(([, v]) => v) });
+$('#f-codigo').value = store.get('codigo','');
+if ($('#f-codigo').value) $('#code-wrap').hidden = false;
+$('#f-codigo').oninput = () => store.set('codigo', $('#f-codigo').value.trim());
+
+// ---------- texto
+const updWc = () => { $('#wc').textContent = (($('#txt').value.trim().match(/\S+/g)) || []).length + ' palabras'; };
+$('#txt').oninput = updWc;
+$('#pick-txt').onclick = () => $('#file-txt').click();
+$('#file-txt').onchange = async () => { const f = $('#file-txt').files[0]; if (f){ $('#txt').value = await f.text(); updWc(); } };
+
+const FRASES = ["en la era digital","en el mundo actual","juega un papel crucial","juega un papel fundamental","es importante destacar","cabe destacar","es importante señalar","en conclusión","en resumen","en definitiva","sin lugar a dudas","un aspecto clave","de manera significativa","en este sentido","desafíos significativos","en última instancia","como modelo de lenguaje","as an ai","delve","it is important to note","in conclusion","furthermore","moreover"];
+function textClues(t){
+  const low = t.toLowerCase(), found = FRASES.filter(f => low.includes(f));
+  const sents = t.split(/(?<=[.!?])\s+/).filter(s => s.split(/\s+/).length > 2);
+  const lens = sents.map(s => s.split(/\s+/).length), mean = lens.reduce((a,b)=>a+b,0)/(lens.length||1);
+  const sd = Math.sqrt(lens.reduce((a,b)=>a+(b-mean)**2,0)/(lens.length||1));
+  return { frases_tipicas: found, variacion_largo_oraciones: +(mean ? sd/mean : 0).toFixed(2), oraciones: sents.length, rayas_largas: (t.match(/—/g)||[]).length };
+}
+
+// ---------- metadatos ocultos
+const META = [
+  [/c2pa|jumbf|contentauth/i, "Credencial de contenido (C2PA): firma de origen que agregan muchas IAs."],
+  [/trainedAlgorithmicMedia/i, "Marca IPTC \"generado por algoritmo\": declaración explícita de IA."],
+  [/midjourney/i, "Menciona Midjourney."],
+  [/dall[·\-\s]?e|openai|chatgpt|sora/i, "Menciona OpenAI / DALL·E / Sora."],
+  [/stable[\s_-]?diffusion|sdxl|automatic1111|comfyui|Steps: \d+, Sampler/i, "Rastros de Stable Diffusion / ComfyUI."],
+  [/firefly/i, "Menciona Adobe Firefly."],
+  [/gemini|synthid|google ai/i, "Menciona herramientas de IA de Google."],
+  [/leonardo\.ai|ideogram|black forest|novelai|runwayml|kling|pika labs|hailuo/i, "Menciona otro generador de IA conocido."],
+];
+const CAMERA = /(Apple|iPhone|Canon|NIKON|SONY|samsung|Xiaomi|motorola|HUAWEI|FUJIFILM|OLYMPUS|Panasonic|Pixel|GoPro|DJI)/;
+async function scanMeta(file){
+  const max = 1.5e6;
+  const buf = file.size <= max*2 ? await file.arrayBuffer() : await new Blob([file.slice(0,max), file.slice(file.size-max)]).arrayBuffer();
+  const b = new Uint8Array(buf); let s = '';
+  for (let i=0;i<b.length;i+=65536) s += String.fromCharCode.apply(null, b.subarray(i,i+65536));
+  const cam = s.match(CAMERA);
+  return { archivo: file.name, marcas_ia: META.filter(([re]) => re.test(s)).map(([,m]) => m), camara: cam ? cam[1] : null, exif: /Exif\0\0/.test(s) };
+}
+function metaText(m){
+  const L = [];
+  if (m.marcas_ia.length) m.marcas_ia.forEach(h => L.push('⚑ ' + h));
+  else L.push('Sin marcas de IA en los datos ocultos (WhatsApp, Instagram y las capturas suelen borrarlas, así que esto no prueba nada).');
+  L.push(m.camara ? `Datos de cámara: ${m.camara}. Suma a favor de foto real, aunque se puede falsificar.` : 'Sin datos de cámara. Es normal en fotos pasadas por WhatsApp o capturas; no indica IA.');
+  return L.join('\n');
+}
+
+// ---------- imágenes
+function shrink(src, max = 1280, q = 0.85){
+  return new Promise((ok, bad) => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth*k); c.height = Math.round(img.naturalHeight*k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      ok({ data: c.toDataURL('image/jpeg', q).split(',')[1], thumb: c.toDataURL('image/jpeg', 0.6), w: img.naturalWidth, h: img.naturalHeight });
+    };
+    img.onerror = () => bad(new Error('formato'));
+    img.src = typeof src === 'string' ? src : URL.createObjectURL(src);
+  });
+}
+let imgs = []; // {file, url, status}
+function drawThumbs(){
+  $('#thumbs').innerHTML = '';
+  imgs.forEach((it, i) => {
+    const d = document.createElement('div'); d.className = 'thumb';
+    d.innerHTML = `<img src="${it.url}" alt="${esc(it.file.name)}"><button type="button" aria-label="Quitar ${esc(it.file.name)}">×</button>${it.badge ? `<span class="badge">${esc(it.badge)}</span>` : ''}`;
+    d.querySelector('button').onclick = () => { imgs.splice(i,1); drawThumbs(); };
+    $('#thumbs').append(d);
+  });
+  $('#go-imagen').disabled = !imgs.length;
+  $('#clear-img').hidden = !imgs.length;
+  $('#istat').textContent = imgs.length ? imgs.length + (imgs.length === 1 ? ' imagen' : ' imágenes') : '';
+}
+function addImages(files){
+  for (const f of files){
+    if (!f.type.startsWith('image/')) continue;
+    if (imgs.length >= 10){ showAlert('Máximo 10 imágenes por análisis.'); break; }
+    imgs.push({ file: f, url: URL.createObjectURL(f) });
+  }
+  drawThumbs();
+}
+$('#clear-img').onclick = () => { imgs = []; drawThumbs(); };
+
+function wireDrop(dropSel, inputSel, onFiles){
+  const d = $(dropSel), inp = $(inputSel);
+  d.onclick = () => inp.click();
+  d.onkeydown = e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); inp.click(); } };
+  inp.onchange = () => { onFiles([...inp.files]); inp.value = ''; };
+  d.ondragover = e => { e.preventDefault(); d.classList.add('over'); };
+  d.ondragleave = () => d.classList.remove('over');
+  d.ondrop = e => { e.preventDefault(); d.classList.remove('over'); onFiles([...e.dataTransfer.files]); };
+}
+wireDrop('#drop-img', '#file-img', addImages);
+document.addEventListener('paste', e => {
+  const files = [...(e.clipboardData?.files || [])].filter(f => f.type.startsWith('image/'));
+  if (files.length && !$('#p-imagen').hidden){ addImages(files); }
+});
+
+// ---------- video
+let vid = null;
+wireDrop('#drop-vid', '#file-vid', files => {
+  const f = files.find(x => x.type.startsWith('video/'));
+  if (!f) return showAlert('Ese archivo no es un video.');
+  vid = f; $('#vstat').textContent = f.name; $('#vthumbs').innerHTML = ''; $('#go-video').disabled = false;
+});
+async function grabFrames(file, n = 6){
+  const v = document.createElement('video');
+  v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(file);
+  await new Promise((ok, bad) => { v.onloadeddata = ok; v.onerror = () => bad(new Error('No se pudo abrir el video. Probá convertirlo a MP4.')); });
+  const dur = v.duration || 1, k = Math.min(1, 768/Math.max(v.videoWidth, v.videoHeight));
+  const c = document.createElement('canvas'); c.width = Math.round(v.videoWidth*k); c.height = Math.round(v.videoHeight*k);
+  const out = [];
+  for (let i=0;i<n;i++){
+    v.currentTime = dur*(i+0.5)/n;
+    await new Promise(r => v.onseeked = r);
+    c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+    const url = c.toDataURL('image/jpeg', 0.8);
+    out.push({ data: url.split(',')[1], thumb: url });
+  }
+  return { frames: out, dur, w: v.videoWidth, h: v.videoHeight };
+}
+
+// ---------- llamada al servidor
+function showAlert(t){ $('#alert').textContent = t; $('#alert').hidden = !t; }
+async function analizar(payload){
+  const p = { ...payload, contexto: contextoDe(ficha()), codigo: $('#f-codigo').value.trim() };
+  let r;
+  try{
+    r = await fetch('/api/analizar', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(p) });
+  }catch{ throw new Error('Sin conexión. Revisá internet y probá de nuevo.'); }
+  let d = null; try{ d = await r.json(); }catch{}
+  if (r.ok && d && !d.error) return d;
+  const e = d && d.error;
+  if (e === 'codigo'){ $('#code-wrap').hidden = false; $('#f-codigo').focus(); throw new Error('Esta página pide un código de acceso. Escribilo arriba, en la ficha, y volvé a analizar.'); }
+  if (e === 'sin_clave') throw new Error('Todavía falta configurar la clave de la IA en el servidor.');
+  if (e === 'texto_corto') throw new Error('El texto es muy corto. Pegá al menos 25 palabras.');
+  if (e === 'ia') throw new Error('La IA no pudo responder: ' + (d.detalle || 'error desconocido'));
+  if (r.status === 504 || r.status === 502) throw new Error('Tardó demasiado. Probá de nuevo; si sigue, con menos imágenes.');
+  if (r.status === 413) throw new Error('El archivo es demasiado pesado.');
+  throw new Error('Algo falló (' + r.status + '). Probá de nuevo.');
+}
+
+// ---------- informes
+function labelFor(p){ return p >= 70 ? ['Muy probablemente hecho con IA','bad'] : p >= 40 ? ['Dudoso: señales mezcladas','warn'] : ['Probablemente hecho por una persona','ok']; }
+function clampP(x){ return Math.max(0, Math.min(100, Math.round(Number(x) || 0))); }
+function reportEl(r, { title, tag, thumb, meta, open = true } = {}){
+  const p = clampP(r.probabilidad_ia), [lab, cls] = labelFor(p);
+  const el = document.createElement('article'); el.className = 'report';
+  const sigs = (Array.isArray(r.senales) ? r.senales : []).map(s => {
+    const t = ['ia','humano'].includes(s.tipo) ? s.tipo : 'neutro';
+    return `<li><span class="pill ${t}">${t === 'ia' ? 'IA' : t === 'humano' ? 'Humano' : 'Neutro'}</span><span>${esc(s.detalle)}</span></li>`;
+  }).join('');
+  const tips = (Array.isArray(r.consejos) ? r.consejos : []).map(c => `<li>${esc(c)}</li>`).join('');
+  el.innerHTML = `
+    <div class="report-head"><h3>${esc(title)}</h3>${tag ? `<span class="tag">${esc(tag)}</span>` : ''}</div>
+    <div class="verdict ${thumb ? 'with-img' : ''}">
+      ${thumb ? `<img src="${thumb}" alt="">` : ''}
+      <div class="score">${p}<small>%</small></div>
+      <div><div class="vlabel ${cls}">${esc(r.veredicto || lab)}</div><div class="meter"><i style="left:${p}%"></i></div><div class="scale"><span>Humano</span><span>Dudoso</span><span>IA</span></div></div>
+    </div>
+    <p class="summary">${esc(r.resumen || '')}</p>
+    <details ${open ? 'open' : ''}><summary>Pistas y cómo confirmarlo</summary>
+      <div style="display:grid;gap:14px;margin-top:12px">
+        <ul class="signals">${sigs || '<li><span class="pill neutro">—</span><span>Sin pistas claras.</span></li>'}</ul>
+        ${meta ? `<div class="meta-box">${esc(metaText(meta))}</div>` : ''}
+        ${tips ? `<div><h3>Cómo confirmarlo vos</h3><ul class="tips" style="margin-top:8px">${tips}</ul></div>` : ''}
+      </div>
+    </details>`;
+  return el;
+}
+function placeholder(title, thumb){
+  const el = document.createElement('article'); el.className = 'report';
+  el.innerHTML = `<div class="report-head"><h3>${esc(title)}</h3><span class="tag">Analizando…</span></div>${thumb ? `<img src="${thumb}" alt="" style="width:96px;height:96px;object-fit:cover;border-radius:6px">` : ''}<p class="summary status">La IA está revisando. Suele tardar entre 5 y 20 segundos.</p>`;
+  return el;
+}
+function errorCard(title, msg){
+  const el = document.createElement('article'); el.className = 'report';
+  el.innerHTML = `<div class="report-head"><h3>${esc(title)}</h3><span class="tag">Error</span></div><p class="summary">${esc(msg)}</p>`;
+  return el;
+}
+function fichaLine(f){ return (f.campos || []).filter(Boolean).join(' · ') || 'Sin datos'; }
+
+// ---------- historial
+const HKEY = 'detector-historial';
+function saveHist(entry){ const h = store.get(HKEY, []); h.unshift(entry); store.set(HKEY, h.slice(0, 300)); drawHist(); fillLists(); }
+function histLists(){
+  const h = store.get(HKEY, []).filter(e => e.ficha.modo === modo);
+  return [0,1,2,3].map(i => [...new Set(h.map(e => e.ficha.campos[i]).filter(Boolean))].slice(0, 100));
+}
+function fillLists(){ histLists().forEach((vals, i) => { const dl = $('#dl-' + i); if (dl) dl.innerHTML = vals.map(v => `<option value="${esc(v)}">`).join(''); }); }
+function drawHist(){
+  const q = $('#h-filter').value.trim().toLowerCase();
+  const h = store.get(HKEY, []).filter(e => !q || fichaLine(e.ficha).toLowerCase().includes(q));
+  const box = $('#hist'); box.innerHTML = '';
+  if (!h.length){ box.innerHTML = `<p class="empty">${q ? 'No hay análisis que coincidan.' : 'Todavía no analizaste nada. Cada análisis queda guardado acá con la ficha del alumno.'}</p>`; return; }
+  h.slice(0, 100).forEach(e => {
+    const [, cls] = labelFor(e.score);
+    const d = document.createElement('div'); d.className = 'hist';
+    const fecha = new Date(e.fecha).toLocaleString('es-AR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+    d.innerHTML = `<button class="hist-row" aria-expanded="false"><span class="num vlabel ${cls}">${e.score}%</span><span class="who"><b>${esc(e.ficha.campos[0] || 'Sin nombre')}</b><span>${esc([MODES[e.ficha.modo]?.nombre, ...e.ficha.campos.slice(1)].filter(Boolean).join(' · '))} · ${esc(e.tipo)} · ${fecha}</span></span><span aria-hidden="true">▾</span></button><div class="hist-body" hidden></div>`;
+    const btn = d.querySelector('.hist-row'), body = d.querySelector('.hist-body');
+    btn.onclick = () => {
+      const open = body.hidden; body.hidden = !open; btn.setAttribute('aria-expanded', open);
+      if (open && !body.childElementCount){
+        e.items.forEach(it => body.append(reportEl(it.r, { title: it.nombre, thumb: it.thumb, meta: it.meta, open: false })));
+        if (e.cuestionario){ const c = document.createElement('div'); c.className = 'report'; c.append(cuestEl(e.cuestionario, true)); body.append(c); }
+        const del = document.createElement('button'); del.className = 'btn ghost small'; del.textContent = 'Borrar este análisis';
+        del.onclick = () => { store.set(HKEY, store.get(HKEY, []).filter(x => x.id !== e.id)); drawHist(); };
+        body.append(del);
+      }
+    };
+    box.append(d);
+  });
+}
+$('#h-filter').oninput = drawHist;
+$('#wipe').onclick = () => $('#wipe-confirm').hidden = false;
+$('#wipe-no').onclick = () => $('#wipe-confirm').hidden = true;
+$('#wipe-yes').onclick = () => { store.set(HKEY, []); $('#wipe-confirm').hidden = true; drawHist(); fillLists(); };
+$('#csv').onclick = () => {
+  const h = store.get(HKEY, []);
+  const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+  const rows = [['Fecha','Uso','Nombre','Dato 2','Dato 3','Dato 4','Tipo','Elemento','% IA','Veredicto','Resumen'].map(q).join(';')];
+  h.forEach(e => e.items.forEach(it => rows.push([new Date(e.fecha).toLocaleString('es-AR'), MODES[e.ficha.modo]?.nombre, ...e.ficha.campos, e.tipo, it.nombre, clampP(it.r.probabilidad_ia), it.r.veredicto || labelFor(clampP(it.r.probabilidad_ia))[0], it.r.resumen].map(q).join(';'))));
+  const blob = new Blob(['﻿' + rows.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'historial-detector-ia.csv'; a.click();
+};
+
+// ---------- cuestionario
+let actual = null; // {tipo, texto, imagenes, resumen, prob, histId, modo}
+function cuestEl(c, showExp){
+  const d = document.createElement('div'); d.style.display = 'grid'; d.style.gap = '12px';
+  if (!showExp) d.classList.add('hide-exp');
+  const qs = (Array.isArray(c.preguntas) ? c.preguntas : []).map(q => `<li>${esc(q.pregunta)}${q.que_esperar ? `<span class="exp">${esc(q.que_esperar)}</span>` : ''}</li>`).join('');
+  d.innerHTML = `<h3>${esc(c.titulo || 'Cuestionario')}</h3>${c.intro ? `<p class="summary">${esc(c.intro)}</p>` : ''}<ol class="qlist">${qs}</ol>`;
+  return d;
+}
+function prepCuest(a){
+  actual = a; const m = MODES[a.modo];
+  $('#cuest').hidden = false; $('#cuest-t').textContent = m.cuest; $('#cuest-go').textContent = 'Armar';
+  $('#cuest-go').disabled = false; $('#cuest-hint').textContent = m.cuestHint; $('#cuest-out').innerHTML = '';
+}
+$('#cuest-go').onclick = async () => {
+  if (!actual) return; const btn = $('#cuest-go'); btn.disabled = true; btn.textContent = 'Armando…';
+  $('#cuest-out').innerHTML = '<p class="status">La IA está armando las preguntas. Suele tardar entre 5 y 20 segundos.</p>';
+  try{
+    const c = await analizar({ tipo: 'cuestionario', base: actual.tipo, texto: actual.texto, imagenes: actual.imagenes, meta: { resumen_del_analisis: actual.resumen, probabilidad_ia: actual.prob } });
+    const out = $('#cuest-out'); out.innerHTML = '';
+    const tools = document.createElement('div'); tools.className = 'row no-print';
+    tools.innerHTML = `<button class="btn ghost small" data-a="exp">Ocultar respuestas esperadas</button><button class="btn ghost small" data-a="copy">Copiar</button><button class="btn ghost small" data-a="print">Imprimir</button>`;
+    const body = cuestEl(c, true);
+    out.append(body, tools);
+    tools.onclick = async e => {
+      const a = e.target.dataset.a; if (!a) return;
+      if (a === 'exp'){ const h = body.classList.toggle('hide-exp'); e.target.textContent = h ? 'Mostrar respuestas esperadas' : 'Ocultar respuestas esperadas'; }
+      if (a === 'copy'){
+        const txt = (c.titulo || '') + '\n\n' + (c.preguntas || []).map((q, i) => `${i+1}. ${q.pregunta}` + (body.classList.contains('hide-exp') || !q.que_esperar ? '' : `\n   → ${q.que_esperar}`)).join('\n');
+        try{ await navigator.clipboard.writeText(txt); e.target.textContent = 'Copiado'; }catch{ e.target.textContent = 'No se pudo copiar'; }
+        setTimeout(() => e.target.textContent = 'Copiar', 1800);
+      }
+      if (a === 'print'){ document.body.classList.add('print-cuest'); window.print(); document.body.classList.remove('print-cuest'); }
+      if (a === 'again') $('#cuest-go').click();
+    };
+    const h = store.get(HKEY, []), ent = h.find(x => x.id === actual.histId);
+    if (ent){ ent.cuestionario = c; store.set(HKEY, h); }
+    btn.textContent = 'Armar otro';
+  }catch(e){ $('#cuest-out').innerHTML = `<p class="alert">${esc(e.message)}</p>`; btn.textContent = 'Probar de nuevo'; }
+  finally{ btn.disabled = false; }
+};
+
+// ---------- acciones
+$('#go-texto').onclick = async () => {
+  const t = $('#txt').value.trim(), btn = $('#go-texto'), f = ficha(); $('#cuest').hidden = true;
+  showAlert('');
+  if ((t.match(/\S+/g) || []).length < 25) return showAlert('El texto es muy corto. Pegá al menos 25 palabras (mejor más de 150).');
+  btn.disabled = true;
+  const title = 'Texto · ' + fichaLine(f);
+  const ph = placeholder(title); $('#results').replaceChildren(ph); ph.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  try{
+    const r = await analizar({ tipo: 'texto', texto: t, meta: textClues(t) });
+    ph.replaceWith(reportEl(r, { title, tag: new Date().toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' }) }));
+    const id = Date.now();
+    saveHist({ id, fecha: id, ficha: f, tipo: 'Texto', score: clampP(r.probabilidad_ia), items: [{ nombre: 'Texto (' + (t.match(/\S+/g)||[]).length + ' palabras)', r }] });
+    prepCuest({ modo: f.modo, tipo: 'texto', texto: t, imagenes: [], resumen: r.resumen, prob: clampP(r.probabilidad_ia), histId: id });
+  }catch(e){ ph.replaceWith(errorCard(title, e.message)); }
+  finally{ btn.disabled = false; }
+};
+
+$('#go-imagen').onclick = async () => {
+  if (!imgs.length) return;
+  const btn = $('#go-imagen'), f = ficha(), list = imgs.slice(); showAlert(''); btn.disabled = true; $('#cuest').hidden = true; const datas = [];
+  const head = document.createElement('article'); head.className = 'report';
+  $('#results').replaceChildren(head);
+  const items = new Array(list.length);
+  const updateHead = () => {
+    const done = items.filter(Boolean), max = done.length ? Math.max(...done.map(x => clampP(x.r.probabilidad_ia))) : 0, [lab, cls] = labelFor(max);
+    head.innerHTML = `<div class="report-head"><h3>${esc(fichaLine(f))}</h3><span class="tag">${done.length}/${list.length} listas</span></div>
+      ${done.length ? `<div class="verdict"><div class="score">${max}<small>%</small></div><div><div class="vlabel ${cls}">${list.length > 1 ? 'La más sospechosa: ' : ''}${esc(lab)}</div><div class="meter"><i style="left:${max}%"></i></div><div class="scale"><span>Humano</span><span>Dudoso</span><span>IA</span></div></div></div>` : '<p class="summary status">Analizando las imágenes…</p>'}`;
+  };
+  updateHead(); head.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const cards = list.map((it, i) => { const c = placeholder(`Imagen ${i+1} · ${it.file.name}`, it.url); $('#results').append(c); return c; });
+  let next = 0;
+  async function worker(){
+    while (next < list.length){
+      const i = next++, it = list[i], title = `Imagen ${i+1} · ${it.file.name}`;
+      try{
+        const meta = await scanMeta(it.file);
+        const s = await shrink(it.file);
+        meta.tamano_original = s.w + 'x' + s.h;
+        const r = await analizar({ tipo: 'imagen', imagenes: [{ mediaType: 'image/jpeg', data: s.data }], meta });
+        items[i] = { nombre: it.file.name, r, meta, thumb: (await shrink(it.file, 160, 0.6)).thumb }; datas[i] = s.data;
+        cards[i].replaceWith(cards[i] = reportEl(r, { title, thumb: it.url, meta, open: list.length === 1 }));
+        it.badge = clampP(r.probabilidad_ia) + '%';
+      }catch(e){
+        const msg = e.message === 'formato' ? 'No se pudo abrir esta imagen (los HEIC de iPhone no abren en todos los navegadores: mandala por WhatsApp o hacé captura).' : e.message;
+        cards[i].replaceWith(cards[i] = errorCard(title, msg)); it.badge = 'Error';
+      }
+      updateHead(); drawThumbs();
+    }
+  }
+  await Promise.all([worker(), worker(), worker()]);
+  const done = items.filter(Boolean);
+  if (done.length){
+    const id = Date.now(), score = Math.max(...done.map(x => clampP(x.r.probabilidad_ia)));
+    saveHist({ id, fecha: id, ficha: f, tipo: done.length === 1 ? 'Imagen' : done.length + ' imágenes', score, items: done });
+    prepCuest({ modo: f.modo, tipo: 'imagen', imagenes: datas.filter(Boolean).slice(0, 4).map(d => ({ mediaType: 'image/jpeg', data: d })), resumen: done.map(x => x.r.resumen).join(' | ').slice(0, 1500), prob: score, histId: id });
+  }
+  btn.disabled = false;
+};
+
+$('#go-video').onclick = async () => {
+  if (!vid) return;
+  const btn = $('#go-video'), f = ficha(), title = 'Video · ' + vid.name; showAlert(''); btn.disabled = true; $('#cuest').hidden = true;
+  const ph = placeholder(title); $('#results').replaceChildren(ph); ph.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  try{
+    $('#vstat').textContent = 'Sacando fotogramas…';
+    const [meta, fr] = await Promise.all([scanMeta(vid), grabFrames(vid, 6)]);
+    $('#vthumbs').innerHTML = fr.frames.map((x, i) => `<div class="thumb"><img src="${x.thumb}" alt="Fotograma ${i+1}"></div>`).join('');
+    $('#vstat').textContent = vid.name;
+    meta.duracion_seg = +fr.dur.toFixed(1); meta.resolucion = fr.w + 'x' + fr.h;
+    const r = await analizar({ tipo: 'video', imagenes: fr.frames.map(x => ({ mediaType: 'image/jpeg', data: x.data })), meta });
+    ph.replaceWith(reportEl(r, { title, meta, thumb: fr.frames[2].thumb }));
+    const id = Date.now();
+    saveHist({ id, fecha: id, ficha: f, tipo: 'Video', score: clampP(r.probabilidad_ia), items: [{ nombre: vid.name, r, meta, thumb: (await shrink(fr.frames[2].thumb, 160, 0.6)).thumb }] });
+    prepCuest({ modo: f.modo, tipo: 'video', imagenes: fr.frames.filter((_, i) => i % 2 === 0).map(x => ({ mediaType: 'image/jpeg', data: x.data })), resumen: r.resumen, prob: clampP(r.probabilidad_ia), histId: id });
+  }catch(e){ ph.replaceWith(errorCard(title, e.message)); $('#vstat').textContent = vid.name; }
+  finally{ btn.disabled = false; }
+};
+
+drawModes(); drawHist(); updWc();
+</script>
+</body>
+</html>
