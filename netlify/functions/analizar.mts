@@ -112,6 +112,13 @@ TEXTO:
 Buscá rastros de IA: anatomía rara (manos, dedos, dientes, orejas, ojos), texto ilegible, simetrías raras, piel plástica, iluminación imposible, sombras y reflejos incoherentes, fondos que se derriten, objetos fusionados, estilo pulido típico de generadores.
 Buscá también rasgos de FOTO REAL, que pesan igual: ruido de celular, compresión, enfoque y encuadre imperfectos, escenas cotidianas desprolijas (migas, manchas, objetos comunes), patrones repetidos que se mantienen coherentes, reflejos físicamente correctos.
 Una foto casera común sin artefactos de IA debe dar un número BAJO (0-25).
+CASO ESPECIAL – DOCUMENTOS Y CAPTURAS DE TEXTO: si la imagen es un documento digital o una captura con texto (recibo, factura, comprobante de transferencia, certificado, CV, carta, chat, captura de pantalla de una web o de un PDF), NO es una foto: ChatGPT y otras IAs arman estos documentos como cualquier programa de oficina, así que los píxeles no muestran huellas de imagen generada. En ese caso:
+- NUNCA digas que "lo hizo una persona" solo porque el documento se ve limpio o normal. Que no tenga artefactos visuales NO prueba nada.
+- Leé el texto del documento y juzgalo como texto: redacción de manual, frases típicas de chatbot, datos genéricos o inventados, formato demasiado prolijo, inconsistencias (montos en letras vs números, fechas, numeración, CUIT con formato raro, domicilios), firmas que parecen dibujadas por computadora.
+- Poné "confianza": "baja" y en "motivo_confianza" explicá en simple que mirando una imagen de un documento no se puede saber con certeza si lo redactó una IA; lo que se puede hacer es verificar si es auténtico.
+- La probabilidad va entre 40 y 70 salvo que el texto tenga huellas claras de chatbot (más alto) o rasgos muy humanos como escritura a mano, sellos reales fotografiados o errores típicos de una persona (más bajo).
+- El "veredicto" tiene que decir que es un documento digital y no se puede determinar solo mirando la imagen (o lo que encontraste en el texto).
+- En "consejos" dá una lista de VERIFICACIÓN concreta según el tipo: para recibos/facturas/comprobantes, consultar el CUIT en la web de ARCA, confirmar en el home banking que la plata se acreditó, pedir el PDF original o el comprobante desde la app del banco, verificar numeración y datos con quien lo emitió; para CV o certificados, contactar a la institución o empresa.
 Datos ocultos del archivo: ${meta}. Una marca C2PA o IPTC de IA es evidencia fuerte. Que falten datos de cámara NO es señal de IA (WhatsApp, Instagram y las capturas los borran).
 En cada señal decí DÓNDE mirar en la imagen.
 ${formato}`;
