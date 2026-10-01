@@ -81,7 +81,7 @@ export default async (req: Request) => {
   const meta = JSON.stringify(body.meta || {}).slice(0, 1500);
 
   const formato = `Respondé SOLO con un objeto JSON, en español rioplatense simple (para alguien que no sabe de tecnología), con esta forma:
-{"probabilidad_ia": número 0-100, "veredicto": "frase corta", "resumen": "2-3 oraciones explicando por qué", "senales": [{"tipo":"ia"|"humano"|"neutro","detalle":"pista concreta y verificable"}], "consejos": ["2-4 cosas que la persona puede hacer para confirmarlo"]}
+{"probabilidad_ia": número 0-100, "confianza": "alta"|"media"|"baja", "motivo_confianza": "1 oración, solo si la confianza no es alta", "veredicto": "frase corta", "resumen": "2-3 oraciones explicando por qué", "senales": [{"tipo":"ia"|"humano"|"neutro","detalle":"pista concreta y verificable"}], "consejos": ["2-4 cosas que la persona puede hacer para confirmarlo"]}
 Entre 3 y 7 señales. Calibración: 0-20 claramente humano; 20-40 probablemente humano; 40-60 SOLO si hay señales fuertes para los dos lados; 60-80 probablemente IA; 80-100 claramente IA. No uses 50 como respuesta "segura". No inventes datos.`;
 
   let prompt = "";
@@ -98,6 +98,11 @@ ${texto ? `\nCONTENIDO:\n"""${texto}"""` : ""}`;
     prompt = `Sos un perito que evalúa si un texto fue escrito con IA (ChatGPT, Gemini, Claude, etc.) o por una persona. ${contexto} Tené en cuenta si el estilo y el nivel son esperables para ese contexto.
 Pistas automáticas ya calculadas: ${meta}.
 Evaluá estilo, estructura, vaguedad, ausencia de experiencia personal, datos dudosos, muletillas típicas de chatbot, errores humanos.
+MUY IMPORTANTE, para no subestimar a la IA:
+- Mucha gente copia y pega respuestas de ChatGPT, Gemini o Claude. Esas respuestas tienen huellas: negritas o títulos (** o ##), listas con viñetas, encabezados tipo "Precio actual:", frases como "Ten en cuenta que…", "Es importante…", "datos en tiempo real", "puede variar", "fuentes como…", ofrecimientos al final ("¿Querés que…?", "Si querés, puedo…"), avisos ("no es asesoramiento financiero"), saludos o cierres serviciales, emojis decorativos, tono neutro de manual. Si aparecen varias de estas huellas, la probabilidad debe ser ALTA (75-95), aunque el texto sea corto.
+- Un texto prolijo, informativo y neutro, sin NINGUNA marca personal (opinión propia, anécdotas, errores de tipeo, modismos, abreviaturas de chat, desorden), no es "humano por defecto": tiene que quedar en 55-75 como mínimo. Para dar menos de 40 tiene que haber señales humanas concretas, y nombrarlas.
+- Respuestas tipo consulta de datos (precios, definiciones, pasos, recetas) con estructura ordenada son típicas de chatbot.
+- Si el texto tiene menos de 80 palabras, poné "confianza": "baja" y explicalo en "motivo_confianza", pero igual juzgá por las huellas: no te escondas en el 50.
 ${formato}
 
 TEXTO:
